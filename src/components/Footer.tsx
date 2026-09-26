@@ -1,0 +1,16 @@
+import { Code2, Heart, Mail } from 'lucide-react'
+import type { Page } from '../types'
+import { Brand } from './Brand'
+
+export function Footer({ onNavigate }: { onNavigate: (page: Page) => void }) {
+  return (
+    <footer>
+      <div className="footer-main">
+        <div className="footer-intro"><Brand compact /><p>Помогаем людям замечать проблемы и вместе делать города чище.</p></div>
+        <div><strong>Навигация</strong><button onClick={() => onNavigate('home')}>Главная</button><button onClick={() => onNavigate('map')}>Карта</button></div>
+        <div><strong>Связаться</strong><a href="mailto:hello@ecomap.ru"><Mail size={15} /> hello@ecomap.ru</a><a href="#github"><Code2 size={15} /> Проект на GitHub</a></div>
+      </div>
+      <div className="footer-bottom"><span>© 2026 Эко карта</span><span>Сделано с <Heart size={14} fill="currentColor" /> для чистого города</span></div>
+    </footer>
+  )
+}
