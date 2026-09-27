@@ -3,7 +3,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { categories } from '../data'
 import { useStore } from '../store'
 import type { WasteVolume } from '../types'
-import { EcoMap } from './EcoMap'
+import { LazyEcoMap } from './LazyEcoMap'
 
 const defaultPhoto = 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&w=900&q=80'
 
@@ -87,7 +87,7 @@ export function AddMarkerModal({ onClose }: { onClose: () => void }) {
           </div>
           <div className="picker-panel">
             <div className="picker-title"><MapPin size={18} /><span><strong>Укажите точку на карте</strong><small>Нажмите в нужном месте</small></span></div>
-            <EcoMap pickerPosition={position} pickerVolume={volume} onPositionChange={setPosition} center={position} zoom={14} />
+            <LazyEcoMap eager pickerPosition={position} pickerVolume={volume} onPositionChange={setPosition} center={position} zoom={14} />
             <div className="coords"><Crosshair size={16} /> {position[0].toFixed(5)}, {position[1].toFixed(5)}</div>
             <button className="button button-wide" type="submit" disabled={!selected.length}><Camera size={18} /> Добавить точку</button>
             <p className="form-consent">Публикуя точку, вы подтверждаете корректность данных</p>

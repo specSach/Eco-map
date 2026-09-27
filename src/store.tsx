@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { initialMarkers } from './data'
+import { safeStorage } from './storage'
 import type { EcoMarker, User } from './types'
 
 type Store = {
@@ -23,7 +24,7 @@ const accountKey = (email: string) => email.trim().toLowerCase()
 
 function readAccounts(): Accounts {
   try {
-    return JSON.parse(localStorage.getItem('eco-accounts') || '{}') as Accounts
+    return JSON.parse(safeStorage.get('eco-accounts') || '{}') as Accounts
   } catch {
     return {}
   }
@@ -32,30 +33,40 @@ function readAccounts(): Accounts {
 function saveAccount(user: User) {
   const accounts = readAccounts()
   accounts[accountKey(user.email)] = user
-  localStorage.setItem('eco-accounts', JSON.stringify(accounts))
+  safeStorage.set('eco-accounts', JSON.stringify(accounts))
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [dark, setDarkState] = useState(() => localStorage.getItem('eco-theme') === 'dark')
+  const [dark, setDarkState] = useState(() => safeStorage.get('eco-theme') === 'dark')
   const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('eco-user')
+    const saved = safeStorage.get('eco-user')
     if (!saved) return null
-    const savedUser = JSON.parse(saved) as User
-    // Migrate the previously active profile to the email-based account storage.
-    if (!readAccounts()[accountKey(savedUser.email)]) saveAccount(savedUser)
-    return savedUser
+    try {
+      const savedUser = JSON.parse(saved) as User
+      // Migrate the previously active profile to the email-based account storage.
+      if (!readAccounts()[accountKey(savedUser.email)]) saveAccount(savedUser)
+      return savedUser
+    } catch {
+      safeStorage.remove('eco-user')
+      return null
+    }
   })
   const [markers, setMarkers] = useState<EcoMarker[]>(() => {
-    const saved = localStorage.getItem('eco-markers')
-    // IDs 1–3 belonged to the first visual demo and are removed during migration.
-    return saved ? (JSON.parse(saved) as EcoMarker[]).filter((marker) => marker.id > 3) : initialMarkers
+    const saved = safeStorage.get('eco-markers')
+    try {
+      // IDs 1–3 belonged to the first visual demo and are removed during migration.
+      return saved ? (JSON.parse(saved) as EcoMarker[]).filter((marker) => marker.id > 3) : initialMarkers
+    } catch {
+      safeStorage.remove('eco-markers')
+      return initialMarkers
+    }
   })
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
-    localStorage.setItem('eco-theme', dark ? 'dark' : 'light')
+    safeStorage.set('eco-theme', dark ? 'dark' : 'light')
   }, [dark])
-  useEffect(() => localStorage.setItem('eco-markers', JSON.stringify(markers)), [markers])
+  useEffect(() => safeStorage.set('eco-markers', JSON.stringify(markers)), [markers])
 
   const value = useMemo<Store>(() => ({
     dark,
@@ -64,16 +75,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     findAccount: (email) => readAccounts()[accountKey(email)] ?? null,
     login: (nextUser) => {
       setUser(nextUser)
-      localStorage.setItem('eco-user', JSON.stringify(nextUser))
+      safeStorage.set('eco-user', JSON.stringify(nextUser))
       saveAccount(nextUser)
     },
     logout: () => {
       setUser(null)
-      localStorage.removeItem('eco-user')
+      safeStorage.remove('eco-user')
     },
     updateUser: (nextUser) => {
       setUser(nextUser)
-      localStorage.setItem('eco-user', JSON.stringify(nextUser))
+      safeStorage.set('eco-user', JSON.stringify(nextUser))
       saveAccount(nextUser)
     },
     markers,

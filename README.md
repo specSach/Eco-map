@@ -31,9 +31,15 @@ npm run build
 
 ## Участники проекта
 
-- **Тестирование:** Илья Орехов
-- **Frontend:** [Роман Карпов](https://github.com/specSach)
+- **Тестирование:**
+  - [Илья Орехов](https://github.com/hidetaka77)
+- **Frontend:**
+  - [Роман Карпов](https://github.com/specSach)
 - **Backend:**
   - [Михаил Ганин](https://github.com/i11wantmore)
   - [Никита Заволокин](https://github.com/petuhebuchi)
-  - Павел Хавроничев
+  - [Павел Хавроничев](https://github.com/Pablo228-user)
+
+## SEO и публикация
+
+Проект настроен для публикации по адресу `https://specsach.github.io/Eco-map/`: добавлены canonical, Open Graph, Schema.org, `robots.txt`, `sitemap.xml` и web app manifest. Если домен изменится, необходимо заменить этот адрес в `index.html`, `public/robots.txt` и `public/sitemap.xml`.

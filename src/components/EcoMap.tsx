@@ -1,6 +1,7 @@
 import L from 'leaflet'
 import { useEffect } from 'react'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
+import 'leaflet/dist/leaflet.css'
 import type { EcoMarker, WasteVolume } from '../types'
 
 const colors: Record<WasteVolume, string> = { small: '#48a46b', medium: '#e3a52b', large: '#e15d4f' }
@@ -26,7 +27,7 @@ function FlyTo({ position, zoom = 15 }: { position?: [number, number]; zoom?: nu
   return null
 }
 
-type Props = {
+export type EcoMapProps = {
   markers?: EcoMarker[]
   selectedId?: number | null
   onMarkerClick?: (marker: EcoMarker) => void
@@ -41,7 +42,7 @@ type Props = {
   className?: string
 }
 
-export function EcoMap({ markers = [], selectedId, onMarkerClick, pickerPosition, pickerVolume = 'small', onPositionChange, center = europeCenter, focusPosition, focusZoom = 15, zoom = 3, interactive = true, className = '' }: Props) {
+export function EcoMap({ markers = [], selectedId, onMarkerClick, pickerPosition, pickerVolume = 'small', onPositionChange, center = europeCenter, focusPosition, focusZoom = 15, zoom = 3, interactive = true, className = '' }: EcoMapProps) {
   return (
     <MapContainer center={center} zoom={zoom} scrollWheelZoom={interactive} dragging={interactive} zoomControl={interactive} attributionControl className={`eco-map ${className}`}>
       <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />

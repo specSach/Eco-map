@@ -1,0 +1,19 @@
+{
+  "name": "Эко карта",
+  "short_name": "Эко карта",
+  "description": "Интерактивная карта загрязнений и мусора",
+  "lang": "ru-RU",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f9f5",
+  "theme_color": "#317c4b",
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
