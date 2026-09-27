@@ -3,18 +3,27 @@ import { useState, type FormEvent } from 'react'
 import { useStore } from '../store'
 
 export function AuthModal({ onClose, onSuccess, initialMode = 'login' }: { onClose: () => void; onSuccess?: () => void; initialMode?: 'login' | 'register' }) {
-  const { login } = useStore()
+  const { findAccount, login } = useStore()
   const [mode, setMode] = useState<'login' | 'register'>(initialMode)
   const [showPassword, setShowPassword] = useState(false)
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
-    login({
-      firstName: String(data.get('firstName') || 'Алексей'),
-      lastName: String(data.get('lastName') || 'Смирнов'),
-      email: String(data.get('email')),
-    })
+    const email = String(data.get('email')).trim().toLowerCase()
+    if (mode === 'register') {
+      login({
+        firstName: String(data.get('firstName')).trim(),
+        lastName: String(data.get('lastName')).trim(),
+        email,
+      })
+    } else {
+      login(findAccount(email) ?? {
+        firstName: 'Безымянный',
+        lastName: 'пользователь',
+        email,
+      })
+    }
     onClose()
     onSuccess?.()
   }

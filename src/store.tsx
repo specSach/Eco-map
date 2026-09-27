@@ -6,6 +6,7 @@ type Store = {
   dark: boolean
   setDark: (value: boolean) => void
   user: User | null
+  findAccount: (email: string) => User | null
   login: (user: User) => void
   logout: () => void
   updateUser: (user: User) => void
@@ -16,11 +17,33 @@ type Store = {
 
 const StoreContext = createContext<Store | null>(null)
 
+type Accounts = Record<string, User>
+
+const accountKey = (email: string) => email.trim().toLowerCase()
+
+function readAccounts(): Accounts {
+  try {
+    return JSON.parse(localStorage.getItem('eco-accounts') || '{}') as Accounts
+  } catch {
+    return {}
+  }
+}
+
+function saveAccount(user: User) {
+  const accounts = readAccounts()
+  accounts[accountKey(user.email)] = user
+  localStorage.setItem('eco-accounts', JSON.stringify(accounts))
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [dark, setDarkState] = useState(() => localStorage.getItem('eco-theme') === 'dark')
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('eco-user')
-    return saved ? JSON.parse(saved) : null
+    if (!saved) return null
+    const savedUser = JSON.parse(saved) as User
+    // Migrate the previously active profile to the email-based account storage.
+    if (!readAccounts()[accountKey(savedUser.email)]) saveAccount(savedUser)
+    return savedUser
   })
   const [markers, setMarkers] = useState<EcoMarker[]>(() => {
     const saved = localStorage.getItem('eco-markers')
@@ -38,9 +61,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     dark,
     setDark: setDarkState,
     user,
+    findAccount: (email) => readAccounts()[accountKey(email)] ?? null,
     login: (nextUser) => {
       setUser(nextUser)
       localStorage.setItem('eco-user', JSON.stringify(nextUser))
+      saveAccount(nextUser)
     },
     logout: () => {
       setUser(null)
@@ -49,6 +74,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateUser: (nextUser) => {
       setUser(nextUser)
       localStorage.setItem('eco-user', JSON.stringify(nextUser))
+      saveAccount(nextUser)
     },
     markers,
     addMarker: (marker) => setMarkers((current) => [{

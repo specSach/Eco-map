@@ -32,7 +32,12 @@ export function Header({ page, onNavigate, onAuth }: Props) {
             {user.firstName.charAt(0)}{user.lastName.charAt(0)}
           </button>
         ) : (
-          <button className="button button-small" onClick={onAuth}><LogIn size={17} /> Войти</button>
+          <>
+            <button className="button button-small" onClick={onAuth}><LogIn size={17} /> Войти</button>
+            <button className="mobile-auth icon-button" onClick={onAuth} aria-label="Войти или зарегистрироваться" title="Войти">
+              <UserRound size={20} />
+            </button>
+          </>
         )}
         <button className="mobile-menu icon-button" onClick={() => setOpen(!open)} aria-label="Открыть меню">
           {open ? <X size={20} /> : <Menu size={20} />}
