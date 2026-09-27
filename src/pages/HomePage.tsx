@@ -18,7 +18,7 @@ export function HomePage({ onNavigate, onSelect, onAdd }: { onNavigate: (page: P
         </div>
         <div className="hero-visual">
           <div className="hero-map-card">
-            <EcoMap markers={markers} onMarkerClick={onSelect} interactive={false} zoom={12} />
+            <EcoMap markers={markers} onMarkerClick={onSelect} interactive={false} zoom={3} />
             <div className="live-label"><i /> Карта обновляется</div>
             <div className="map-stat"><strong>{markers.length}</strong><span>активных точек<br />на карте</span></div>
           </div>
@@ -40,7 +40,7 @@ export function HomePage({ onNavigate, onSelect, onAdd }: { onNavigate: (page: P
       </section>
 
       <section className="map-showcase section-shell">
-        <div className="showcase-map"><EcoMap markers={markers} onMarkerClick={onSelect} zoom={12} /></div>
+        <div className="showcase-map"><EcoMap markers={markers} onMarkerClick={onSelect} zoom={3} /></div>
         <div className="showcase-copy"><span className="eyebrow">Живая карта</span><h2>Всё важное —<br />перед глазами</h2><p>Каждая точка содержит фотографию, описание, тип и объём мусора. Цвет метки помогает быстро оценить ситуацию.</p>
           <ul><li><span className="volume-dot small" /><span><strong>Зелёная</strong> — немного мусора</span></li><li><span className="volume-dot medium" /><span><strong>Жёлтая</strong> — средний объём</span></li><li><span className="volume-dot large" /><span><strong>Красная</strong> — нужна помощь</span></li></ul>
           <div className="showcase-actions">

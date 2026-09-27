@@ -46,7 +46,7 @@ export function MapPage({ onAdd, onAuth, onSelect }: { onAdd: () => void; onAuth
           <div className="filter-row"><span><ListFilter size={17} /> Объём:</span>{([['all', 'Все'], ['small', 'Немного'], ['medium', 'Средне'], ['large', 'Много']] as const).map(([value, label]) => <button key={value} className={filter === value ? 'active' : ''} onClick={() => setFilter(value)}>{value !== 'all' && <i className={`volume-dot ${value}`} />}{label}</button>)}</div>
         </div>
         <div className="full-map-wrap">
-          <EcoMap markers={shown} onMarkerClick={onSelect} focusPosition={focusPosition} focusZoom={11} zoom={13} />
+          <EcoMap markers={shown} onMarkerClick={onSelect} focusPosition={focusPosition} focusZoom={11} zoom={3} />
           <div className="map-counter"><MapPin size={18} /><span><strong>{shown.length}</strong> {shown.length === 1 ? 'точка' : 'точек'} на карте</span></div>
           <button className="locate-fab" title="Моё местоположение" onClick={() => navigator.geolocation?.getCurrentPosition((value) => setFocusPosition([value.coords.latitude, value.coords.longitude]))}><Crosshair size={20} /></button>
         </div>

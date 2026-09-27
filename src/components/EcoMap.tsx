@@ -4,6 +4,7 @@ import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-lea
 import type { EcoMarker, WasteVolume } from '../types'
 
 const colors: Record<WasteVolume, string> = { small: '#48a46b', medium: '#e3a52b', large: '#e15d4f' }
+const europeCenter: [number, number] = [54, 20]
 
 function markerIcon(volume: WasteVolume, active = false) {
   return L.divIcon({
@@ -40,7 +41,7 @@ type Props = {
   className?: string
 }
 
-export function EcoMap({ markers = [], selectedId, onMarkerClick, pickerPosition, pickerVolume = 'small', onPositionChange, center = [55.7558, 37.6176], focusPosition, focusZoom = 15, zoom = 13, interactive = true, className = '' }: Props) {
+export function EcoMap({ markers = [], selectedId, onMarkerClick, pickerPosition, pickerVolume = 'small', onPositionChange, center = europeCenter, focusPosition, focusZoom = 15, zoom = 3, interactive = true, className = '' }: Props) {
   return (
     <MapContainer center={center} zoom={zoom} scrollWheelZoom={interactive} dragging={interactive} zoomControl={interactive} attributionControl className={`eco-map ${className}`}>
       <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />

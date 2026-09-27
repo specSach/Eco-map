@@ -31,6 +31,9 @@ npm run build
 
 ## Участники проекта
 
-- Тестирование: Илья Орехов
-- Frontend: Роман Карпов
-- Backend: Михаил Ганин, Никита Заволокин, Павел Хавроничев
+- **Тестирование:** Илья Орехов
+- **Frontend:** [Роман Карпов](https://github.com/specSach)
+- **Backend:**
+  - [Михаил Ганин](https://github.com/i11wantmore)
+  - [Никита Заволокин](https://github.com/petuhebuchi)
+  - Павел Хавроничев
