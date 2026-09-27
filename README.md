@@ -42,4 +42,4 @@ npm run build
 
 ## SEO и публикация
 
-Проект настроен для публикации по адресу `https://specsach.github.io/Eco-map/`: добавлены canonical, Open Graph, Schema.org, `robots.txt`, `sitemap.xml` и web app manifest. Если домен изменится, необходимо заменить этот адрес в `index.html`, `public/robots.txt` и `public/sitemap.xml`.
+Проект настроен для публикации на домене [картамусора.рф](https://xn--80aaa1bmmldhhn.xn--p1ai/): добавлены canonical, Open Graph, Schema.org, `robots.txt`, `sitemap.xml` и web app manifest. Для технических SEO-адресов используется Punycode-форма `xn--80aaa1bmmldhhn.xn--p1ai`.

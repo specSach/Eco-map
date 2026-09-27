@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://specsach.github.io/Eco-map/sitemap.xml
+Sitemap: https://xn--80aaa1bmmldhhn.xn--p1ai/sitemap.xml
