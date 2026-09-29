@@ -1,9 +1,10 @@
 import { Camera, Crosshair, ImagePlus, LocateFixed, MapPin, Search, X } from 'lucide-react'
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { categories } from '../data'
 import { useStore } from '../store'
 import type { WasteVolume } from '../types'
 import { LazyEcoMap } from './LazyEcoMap'
+import { errorMessage } from '../api'
 
 const defaultPhoto = 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&w=900&q=80'
 
@@ -13,9 +14,16 @@ export function AddMarkerModal({ onClose }: { onClose: () => void }) {
   const [selected, setSelected] = useState<string[]>(['Пластик'])
   const [volume, setVolume] = useState<WasteVolume>('small')
   const [photo, setPhoto] = useState(defaultPhoto)
+  const [photoFile, setPhotoFile] = useState<File>()
   const [address, setAddress] = useState('Москва, центр')
   const [searchState, setSearchState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [submitError, setSubmitError] = useState('')
+  const [pending, setPending] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => () => {
+    if (photo.startsWith('blob:')) URL.revokeObjectURL(photo)
+  }, [photo])
 
   const locate = () => {
     navigator.geolocation?.getCurrentPosition((value) => {
@@ -38,16 +46,27 @@ export function AddMarkerModal({ onClose }: { onClose: () => void }) {
     }
   }
   const upload = (file?: File) => {
-    if (file) setPhoto(URL.createObjectURL(file))
+    if (file) {
+      setPhoto(URL.createObjectURL(file))
+      setPhotoFile(file)
+    }
   }
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault()
     const data = new FormData(event.currentTarget as HTMLFormElement)
-    addMarker({
-      lat: position[0], lng: position[1], address, categories: selected, volume, photo,
-      description: String(data.get('description') || 'Описание не добавлено.'),
-    })
-    onClose()
+    setPending(true)
+    setSubmitError('')
+    try {
+      await addMarker({
+        lat: position[0], lng: position[1], address, categories: selected, volume, photo,
+        description: String(data.get('description') || 'Описание не добавлено.'),
+      }, photoFile)
+      onClose()
+    } catch (reason) {
+      setSubmitError(errorMessage(reason))
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
@@ -57,7 +76,7 @@ export function AddMarkerModal({ onClose }: { onClose: () => void }) {
           <div><p className="eyebrow">Новая точка</p><h2>Отметить мусор</h2></div>
           <button className="modal-close static" onClick={onClose} aria-label="Закрыть"><X size={20} /></button>
         </header>
-        <form onSubmit={submit} className="add-form">
+        <form onSubmit={(event) => void submit(event)} className="add-form">
           <div className="add-fields">
             <div className="field-group">
               <div className="field-heading"><span>1</span><div><strong>Где находится мусор?</strong><small>Найдите адрес или укажите точку на карте</small></div></div>
@@ -89,7 +108,8 @@ export function AddMarkerModal({ onClose }: { onClose: () => void }) {
             <div className="picker-title"><MapPin size={18} /><span><strong>Укажите точку на карте</strong><small>Нажмите в нужном месте</small></span></div>
             <LazyEcoMap eager pickerPosition={position} pickerVolume={volume} onPositionChange={setPosition} center={position} zoom={14} />
             <div className="coords"><Crosshair size={16} /> {position[0].toFixed(5)}, {position[1].toFixed(5)}</div>
-            <button className="button button-wide" type="submit" disabled={!selected.length}><Camera size={18} /> Добавить точку</button>
+            {submitError && <p className="field-error" role="alert">{submitError}</p>}
+            <button className="button button-wide" type="submit" disabled={!selected.length || pending}>{pending ? 'Сохраняем…' : <><Camera size={18} /> Добавить точку</>}</button>
             <p className="form-consent">Публикуя точку, вы подтверждаете корректность данных</p>
           </div>
         </form>

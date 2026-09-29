@@ -17,7 +17,7 @@ const pageFromHash = (): Page => {
 }
 
 function Site() {
-  const { clearMarker, user } = useStore()
+  const { clearMarker, user, error, clearError } = useStore()
   const [page, setPage] = useState<Page>(pageFromHash)
   const [authOpen, setAuthOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
@@ -66,6 +66,7 @@ function Site() {
   }, [page])
 
   return <div className="app-shell">
+    {error && <button className="api-error-banner" onClick={clearError} role="alert">{error} · Закрыть</button>}
     <Header page={page} onNavigate={navigate} onAuth={requestAuth} />
     <Suspense fallback={<main className="page-loading" aria-label="Страница загружается"><span /></main>}>
       {page === 'home' && <HomePage onNavigate={navigate} onSelect={setSelected} onAdd={requestAdd} />}
@@ -76,7 +77,7 @@ function Site() {
     <Suspense fallback={null}>
       {authOpen && <AuthModal initialMode={authIntent === 'add' ? 'register' : 'login'} onClose={() => { setAuthOpen(false); setAuthIntent(null) }} onSuccess={() => { if (authIntent === 'add') setAddOpen(true); setAuthIntent(null) }} />}
       {addOpen && <AddMarkerModal onClose={() => setAddOpen(false)} />}
-      {selected && <><div className="drawer-backdrop" onClick={() => setSelected(null)} /><MarkerDrawer marker={selected} onClose={() => setSelected(null)} onClear={() => { clearMarker(selected.id); setSelected(null) }} /></>}
+      {selected && <><div className="drawer-backdrop" onClick={() => setSelected(null)} /><MarkerDrawer marker={selected} onClose={() => setSelected(null)} onClear={() => { void clearMarker(selected.id).then(() => setSelected(null)).catch(() => undefined) }} /></>}
     </Suspense>
   </div>
 }

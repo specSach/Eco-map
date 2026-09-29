@@ -1,0 +1,49 @@
+ name: Deploy Frontend                                                                                                                                                   
+                                                                                                                                                                            
+    on:                                                                                                                                                                     
+      push:                                                                                                                                                                 
+        branches:                                                                                                                                                           
+          - main                                                                                                                                                            
+          - feature/backend-integration                                                                                                                                     
+        paths:                                                                                                                                                              
+          - 'src/**'                                                                                                                                                        
+          - 'public/**'                                                                                                                                                     
+          - 'index.html'                                                                                                                                                    
+          - 'package.json'                                                                                                                                                  
+          - 'package-lock.json'                                                                                                                                             
+          - 'vite.config.ts'                                                                                                                                                
+          - 'tsconfig*.json'                                                                                                                                                
+          - '.github/workflows/deploy-frontend.yml'                                                                                                                         
+      workflow_dispatch:                                                                                                                                                    
+                                                                                                                                                                            
+    concurrency:                                                                                                                                                            
+      group: deploy-frontend                                                                                                                                                
+      cancel-in-progress: true                                                                                                                                              
+                                                                                                                                                                            
+    jobs:                                                                                                                                                                   
+      deploy-frontend:                                                                                                                                                      
+        runs-on: self-hosted                                                                                                                                                
+                                                                                                                                                                            
+        steps:                                                                                                                                                              
+          - name: Checkout code                                                                                                                                             
+            uses: actions/checkout@v4                                                                                                                                       
+                                                                                                                                                                            
+          - name: Setup Node.js                                                                                                                                             
+            uses: actions/setup-node@v4                                                                                                                                     
+            with:                                                                                                                                                           
+              node-version: 20                                                                                                                                              
+              cache: 'npm'                                                                                                                                                  
+                                                                                                                                                                            
+          - name: Install Dependencies                                                                                                                                      
+            run: npm ci                                                                                                                                                     
+                                                                                                                                                                            
+          - name: Build Frontend                                                                                                                                            
+            run: npm run build                                                                                                                                              
+            env:                                                                                                                                                            
+              VITE_API_URL: ""                                                                                                                                              
+                                                                                                                                                                            
+          - name: Deploy to Nginx webroot                                                                                                                                   
+            run: |                                                                                                                                                          
+              sudo rsync -av --delete dist/ /var/www/eco-map/                                                                                                               
+              sudo chown -R www-data:www-data /var/www/eco-map/                                                                                                             
+              sudo chmod -R 755 /var/www/eco-map/ 

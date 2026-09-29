@@ -12,6 +12,7 @@ export type EcoMarker = {
   date: string
   photo: string
   author: string
+  isCleared: boolean
 }
 
 export type User = {

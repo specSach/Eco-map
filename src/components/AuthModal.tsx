@@ -1,31 +1,37 @@
 import { Eye, EyeOff, LockKeyhole, Mail, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useStore } from '../store'
+import { errorMessage } from '../api'
 
 export function AuthModal({ onClose, onSuccess, initialMode = 'login' }: { onClose: () => void; onSuccess?: () => void; initialMode?: 'login' | 'register' }) {
-  const { findAccount, login } = useStore()
+  const { login } = useStore()
   const [mode, setMode] = useState<'login' | 'register'>(initialMode)
   const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
     const email = String(data.get('email')).trim().toLowerCase()
-    if (mode === 'register') {
-      login({
-        firstName: String(data.get('firstName')).trim(),
-        lastName: String(data.get('lastName')).trim(),
+    setPending(true)
+    setError('')
+    try {
+      await login(mode, {
         email,
+        password: String(data.get('password')),
+        ...(mode === 'register' ? {
+          firstName: String(data.get('firstName')).trim(),
+          lastName: String(data.get('lastName')).trim(),
+        } : {}),
       })
-    } else {
-      login(findAccount(email) ?? {
-        firstName: 'Безымянный',
-        lastName: 'пользователь',
-        email,
-      })
+      onClose()
+      onSuccess?.()
+    } catch (reason) {
+      setError(errorMessage(reason))
+    } finally {
+      setPending(false)
     }
-    onClose()
-    onSuccess?.()
   }
 
   return (
@@ -40,7 +46,7 @@ export function AuthModal({ onClose, onSuccess, initialMode = 'login' }: { onClo
         <p className="eyebrow">Добро пожаловать</p>
         <h2>{mode === 'login' ? 'Войти в Эко карту' : 'Создать аккаунт'}</h2>
         <p className="muted">{mode === 'login' ? 'Продолжайте делать город чище вместе с нами.' : 'Пара минут — и можно добавлять новые точки.'}</p>
-        <form onSubmit={submit} className="form-stack">
+        <form onSubmit={(event) => void submit(event)} className="form-stack">
           {mode === 'register' && (
             <div className="form-row">
               <label>Имя<input required name="firstName" autoComplete="given-name" placeholder="Ваше имя" /></label>
@@ -51,9 +57,10 @@ export function AuthModal({ onClose, onSuccess, initialMode = 'login' }: { onClo
             <span className="input-with-icon"><Mail size={17} /><input required name="email" type="email" autoComplete="email" placeholder="name@example.ru" /></span>
           </label>
           <label>Пароль
-            <span className="input-with-icon"><LockKeyhole size={17} /><input required minLength={6} name="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} type={showPassword ? 'text' : 'password'} placeholder="Не менее 6 символов" /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></span>
+            <span className="input-with-icon"><LockKeyhole size={17} /><input required minLength={mode === 'login' ? 1 : 8} name="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} type={showPassword ? 'text' : 'password'} placeholder={mode === 'login' ? 'Введите пароль' : 'Не менее 8 символов'} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></span>
           </label>
-          <button className="button button-wide" type="submit">{mode === 'login' ? 'Войти' : 'Зарегистрироваться'}</button>
+          {error && <p className="field-error" role="alert">{error}</p>}
+          <button className="button button-wide" type="submit" disabled={pending}>{pending ? 'Подождите…' : mode === 'login' ? 'Войти' : 'Зарегистрироваться'}</button>
         </form>
         <div className="auth-switch">
           {mode === 'login' ? 'Ещё нет аккаунта?' : 'Уже есть аккаунт?'}
