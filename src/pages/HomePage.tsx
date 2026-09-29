@@ -42,7 +42,7 @@ export function HomePage({ onNavigate, onSelect, onAdd }: { onNavigate: (page: P
       <section className="map-showcase section-shell">
         <div className="showcase-map"><LazyEcoMap markers={markers} onMarkerClick={onSelect} zoom={3} /></div>
         <div className="showcase-copy"><span className="eyebrow">Живая карта</span><h2>Всё важное —<br />перед глазами</h2><p>Каждая точка содержит фотографию, описание, тип и объём мусора. Цвет метки помогает быстро оценить ситуацию.</p>
-          <ul><li><span className="volume-dot small" /><span><strong>Зелёная</strong> — немного мусора</span></li><li><span className="volume-dot medium" /><span><strong>Жёлтая</strong> — средний объём</span></li><li><span className="volume-dot large" /><span><strong>Красная</strong> — нужна помощь</span></li></ul>
+          <ul><li><span className="volume-dot small" /><span><strong>Зелёная</strong> — немного мусора</span></li><li><span className="volume-dot medium" /><span><strong>Жёлтая</strong> — средний объём</span></li><li><span className="volume-dot large" /><span><strong>Красная</strong> — нужна помощь</span></li><li><span className="volume-dot gray" /><span><strong>Серая</strong> — на 24-часовой проверке</span></li></ul>
           <div className="showcase-actions">
             <button className="button" onClick={onAdd}><Plus size={17} /> Добавить метку</button>
             <button className="button button-ghost" onClick={() => onNavigate('map')}>Посмотреть всю карту <ArrowRight size={17} /></button>

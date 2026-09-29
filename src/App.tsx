@@ -7,22 +7,25 @@ import type { EcoMarker, Page } from './types'
 
 const MapPage = lazy(() => import('./pages/MapPage').then((module) => ({ default: module.MapPage })))
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((module) => ({ default: module.ProfilePage })))
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage').then((module) => ({ default: module.PrivacyPage })))
 const AuthModal = lazy(() => import('./components/AuthModal').then((module) => ({ default: module.AuthModal })))
 const AddMarkerModal = lazy(() => import('./components/AddMarkerModal').then((module) => ({ default: module.AddMarkerModal })))
 const MarkerDrawer = lazy(() => import('./components/MarkerDrawer').then((module) => ({ default: module.MarkerDrawer })))
 
 const pageFromHash = (): Page => {
   const hash = location.hash.slice(1)
-  return hash === 'map' || hash === 'profile' ? hash : 'home'
+  return hash === 'map' || hash === 'profile' || hash === 'privacy' ? hash : 'home'
 }
 
 function Site() {
-  const { clearMarker, user } = useStore()
+  const { markers, user } = useStore()
   const [page, setPage] = useState<Page>(pageFromHash)
   const [authOpen, setAuthOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [authIntent, setAuthIntent] = useState<'add' | null>(null)
-  const [selected, setSelected] = useState<EcoMarker | null>(null)
+  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [editing, setEditing] = useState<EcoMarker | null>(null)
+  const selected = selectedId === null ? null : markers.find((marker) => marker.id === selectedId) ?? null
   const navigate = (next: Page) => { setPage(next); location.hash = next; window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const requestAdd = () => {
     if (user) setAddOpen(true)
@@ -56,6 +59,11 @@ function Site() {
         description: 'Управление профилем пользователя Эко карты.',
         robots: 'noindex, nofollow',
       },
+      privacy: {
+        title: 'Политика конфиденциальности — Эко карта',
+        description: 'Как Эко карта использует и защищает данные пользователей, фотографии и геолокацию.',
+        robots: 'index, follow',
+      },
     }
     const current = metadata[page]
     document.title = current.title
@@ -68,15 +76,16 @@ function Site() {
   return <div className="app-shell">
     <Header page={page} onNavigate={navigate} onAuth={requestAuth} />
     <Suspense fallback={<main className="page-loading" aria-label="Страница загружается"><span /></main>}>
-      {page === 'home' && <HomePage onNavigate={navigate} onSelect={setSelected} onAdd={requestAdd} />}
-      {page === 'map' && <MapPage onAdd={requestAdd} onAuth={requestAuth} onSelect={setSelected} />}
+      {page === 'home' && <HomePage onNavigate={navigate} onSelect={(marker) => setSelectedId(marker.id)} onAdd={requestAdd} />}
+      {page === 'map' && <MapPage onAdd={requestAdd} onAuth={requestAuth} onSelect={(marker) => setSelectedId(marker.id)} />}
       {page === 'profile' && <ProfilePage onLogout={() => navigate('home')} />}
+      {page === 'privacy' && <PrivacyPage />}
     </Suspense>
     <Footer onNavigate={navigate} />
     <Suspense fallback={null}>
       {authOpen && <AuthModal initialMode={authIntent === 'add' ? 'register' : 'login'} onClose={() => { setAuthOpen(false); setAuthIntent(null) }} onSuccess={() => { if (authIntent === 'add') setAddOpen(true); setAuthIntent(null) }} />}
-      {addOpen && <AddMarkerModal onClose={() => setAddOpen(false)} />}
-      {selected && <><div className="drawer-backdrop" onClick={() => setSelected(null)} /><MarkerDrawer marker={selected} onClose={() => setSelected(null)} onClear={() => { clearMarker(selected.id); setSelected(null) }} /></>}
+      {addOpen && <AddMarkerModal marker={editing} onClose={() => { setAddOpen(false); setEditing(null) }} />}
+      {selected && <><div className="drawer-backdrop" onClick={() => setSelectedId(null)} /><MarkerDrawer marker={selected} onClose={() => setSelectedId(null)} onEdit={(marker) => { setSelectedId(null); setEditing(marker); setAddOpen(true) }} /></>}
     </Suspense>
   </div>
 }
