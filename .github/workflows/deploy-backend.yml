@@ -1,0 +1,39 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+      - feature/backend-integration
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: true
+
+jobs:
+  deploy-backend:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy Backend Files
+        run: |
+          rsync -av --delete backend/app/ /var/www/eco-backend/app/
+          cp backend/requirements.txt /var/www/eco-backend/requirements.txt
+
+      - name: Install Python Dependencies
+        run: |
+          if [ -f "/var/www/eco-backend/venv/bin/pip" ]; then
+            /var/www/eco-backend/venv/bin/pip install -r /var/www/eco-backend/requirements.txt
+          fi
+
+      - name: Restart Backend Service
+        run: |
+          sudo systemctl restart eco-backend
+          sudo systemctl is-active eco-backend

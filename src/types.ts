@@ -7,11 +7,11 @@ export type MapView = {
   zoom: number
 }
 
-export type EcoStatistics = {
-  registeredUsers: number
-  pointsAdded: number
-  placesCleaned: number
-  pointsUnderReview: number
+export type PlatformStats = {
+  totalUsers: number
+  totalMarkers: number
+  cleanedMarkers: number
+  cleanupRatePercent: number
 }
 
 export type CleanupRequest = {
@@ -51,10 +51,15 @@ export type EcoMarker = {
   status: MarkerStatus
   cleanupRequest?: CleanupRequest
   cleanupSlots: CleanupSlot[]
+  cleanedAt?: string
+  evidencePhoto?: string
+  isCleared?: boolean
 }
 
-export type User = {
+export type AuthUser = {
   firstName: string
   lastName: string
   email: string
 }
+
+export type User = AuthUser

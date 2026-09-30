@@ -4,7 +4,7 @@ import type { EcoMarker, Page } from '../types'
 import { LazyEcoMap } from '../components/LazyEcoMap'
 
 export function HomePage({ onNavigate, onSelect, onAdd }: { onNavigate: (page: Page) => void; onSelect: (m: EcoMarker) => void; onAdd: () => void }) {
-  const { markers, statistics } = useStore()
+  const { markers, stats } = useStore()
   const activePoints = markers.filter((marker) => marker.status === 'active').length
   const scrollToHow = () => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   return (
@@ -15,7 +15,7 @@ export function HomePage({ onNavigate, onSelect, onAdd }: { onNavigate: (page: P
           <h1>Замечай.<br /><em>Отмечай.</em> Меняй.</h1>
           <p>Интерактивная карта загрязнений, которая объединяет тех, кому не всё равно. Добавляйте проблемные места и помогайте им исчезать.</p>
           <div className="hero-actions"><button className="button" onClick={() => onNavigate('map')}><MapPin size={18} /> Открыть карту</button><button className="text-link link-button" onClick={scrollToHow}>Как это работает <ArrowRight size={17} /></button></div>
-          <div className="hero-proof"><div className="proof-faces" aria-hidden="true"><span><Users size={18} /></span></div><p><strong>{formatCount(statistics.registeredUsers)} {personWord(statistics.registeredUsers)}</strong><br />уже {statistics.registeredUsers === 1 ? 'делает' : 'делают'} город чище</p></div>
+          <div className="hero-proof"><div className="proof-faces" aria-hidden="true"><span><Users size={18} /></span></div><p><strong>{formatOptionalCount(stats?.totalUsers)} человек</strong><br />уже делают город чище</p></div>
         </div>
         <div className="hero-visual">
           <div className="hero-map-card">
@@ -28,7 +28,7 @@ export function HomePage({ onNavigate, onSelect, onAdd }: { onNavigate: (page: P
       </section>
 
       <section className="impact-strip">
-        <div><strong>{formatCount(statistics.registeredUsers)}</strong><span>{pluralForm(statistics.registeredUsers, 'участник', 'участника', 'участников')}</span></div><i /><div><strong>{formatCount(statistics.pointsAdded)}</strong><span>{pluralForm(statistics.pointsAdded, 'точка добавлена', 'точки добавлены', 'точек добавлено')}</span></div><i /><div><strong>{formatCount(statistics.placesCleaned)}</strong><span>{pluralForm(statistics.placesCleaned, 'место уже очищено', 'места уже очищены', 'мест уже очищено')}</span></div><i /><div><strong>{formatCount(statistics.pointsUnderReview)}</strong><span>{pluralForm(statistics.pointsUnderReview, 'точка на проверке', 'точки на проверке', 'точек на проверке')}</span></div>
+        <div><strong>{formatOptionalCount(stats?.totalUsers)}</strong><span>участников</span></div><i /><div><strong>{formatOptionalCount(stats?.totalMarkers)}</strong><span>точек добавлено</span></div><i /><div><strong>{formatOptionalCount(stats?.cleanedMarkers)}</strong><span>места уже очищено</span></div><i /><div><strong>{stats?.cleanupRatePercent ?? 0}%</strong><span>точек убирают</span></div>
       </section>
 
       <section className="section-shell how-section" id="how">
@@ -67,8 +67,8 @@ function formatCount(value: number) {
   return countFormatter.format(value)
 }
 
-function personWord(value: number) {
-  return pluralForm(value, 'человек', 'человека', 'человек')
+function formatOptionalCount(value?: number) {
+  return value === undefined ? '...' : formatCount(value)
 }
 
 function pluralForm(value: number, one: string, few: string, many: string) {

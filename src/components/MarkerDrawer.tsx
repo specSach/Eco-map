@@ -10,6 +10,7 @@ export function MarkerDrawer({ marker, onClose, onEdit }: { marker: EcoMarker; o
   const [proofOpen, setProofOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
   const [notice, setNotice] = useState('')
+  const [actionPending, setActionPending] = useState(false)
   const [now, setNow] = useState(Date.now())
   const isOwner = Boolean(user && marker.creatorEmail.toLowerCase() === user.email.toLowerCase())
   const canRemoveSlot = (creatorEmail: string) => Boolean(user && (isOwner || creatorEmail.toLowerCase() === user.email.toLowerCase()))
@@ -21,8 +22,12 @@ export function MarkerDrawer({ marker, onClose, onEdit }: { marker: EcoMarker; o
     return () => window.clearInterval(timer)
   }, [])
 
-  const act = (success: boolean, message: string) => {
-    setNotice(success ? message : 'Действие недоступно для этого аккаунта.')
+  const act = async (action: Promise<boolean>, message: string) => {
+    setActionPending(true)
+    const success = await action
+    setActionPending(false)
+    setNotice(success ? message : 'Не удалось выполнить действие. Проверьте соединение и права доступа.')
+    return success
   }
 
   return <>
@@ -52,39 +57,49 @@ export function MarkerDrawer({ marker, onClose, onEdit }: { marker: EcoMarker; o
           {marker.cleanupRequest?.evidencePhoto && <img src={marker.cleanupRequest.evidencePhoto} alt="Фото после уборки" />}
           <p>{marker.cleanupRequest ? `Фото добавил(а) ${marker.cleanupRequest.requestedByName}. ` : ''}{isOwner ? 'Проверьте результат и подтвердите уборку либо верните метку в активные.' : 'Результат уборки ожидает решения автора метки.'}</p>
           {isOwner && <div className="cleanup-actions">
-            <button className="button button-ghost" onClick={() => act(undoCleanup(marker.id), 'Метка снова активна, фото проверки удалено.')}><AlertTriangle size={17} /> Мусор не убран</button>
-            <button className="button" onClick={() => act(confirmCleanup(marker.id), 'Уборка подтверждена, метка удалена.')}><CheckCircle2 size={17} /> Подтвердить</button>
+            <button className="button button-ghost" disabled={actionPending} onClick={() => void act(undoCleanup(marker.id), 'Метка снова активна, фото проверки удалено.')}><AlertTriangle size={17} /> Мусор не убран</button>
+            <button className="button" disabled={actionPending} onClick={() => void act(confirmCleanup(marker.id), 'Уборка подтверждена, метка удалена.')}><CheckCircle2 size={17} /> Подтвердить</button>
           </div>}
         </section>}
 
         <section className="cleanup-planning">
           <div className="cleanup-planning-title"><Users size={20} /><div><strong>Групповая уборка</strong><small>{activeSlots.length ? `${activeSlots.length} ${slotWord(activeSlots.length)} запланировано` : 'Предложите удобные дату и время'}</small></div></div>
-          {activeSlots.map((slot) => <div className="cleanup-slot" key={slot.id}><CalendarClock size={17} /><div><strong>{formatSlotDate(slot.startsAt)}</strong><small>{slot.participants.reduce((sum, participant) => sum + participant.peopleCount, 0)} чел. · создал(а) {slot.creatorName}</small></div>{canRemoveSlot(slot.creatorEmail) && <button type="button" className="cleanup-slot-remove" title="Удалить группу" aria-label={`Удалить группу на ${formatSlotDate(slot.startsAt)}`} onClick={() => act(removeCleanupSlot(marker.id, slot.id), 'Группа удалена из расписания.')}><Trash2 size={15} /></button>}</div>)}
+          {activeSlots.map((slot) => <div className="cleanup-slot" key={slot.id}><CalendarClock size={17} /><div><strong>{formatSlotDate(slot.startsAt)}</strong><small>{slot.participants.reduce((sum, participant) => sum + participant.peopleCount, 0)} чел. · создал(а) {slot.creatorName}</small></div>{canRemoveSlot(slot.creatorEmail) && <button type="button" disabled={actionPending} className="cleanup-slot-remove" title="Удалить группу" aria-label={`Удалить группу на ${formatSlotDate(slot.startsAt)}`} onClick={() => void act(removeCleanupSlot(marker.id, slot.id), 'Группа удалена из расписания.')}><Trash2 size={15} /></button>}</div>)}
           <button className="button button-ghost button-wide" disabled={!user} onClick={() => setPlanOpen((value) => !value)}><Users size={17} /> {user ? 'Я приду' : 'Войдите, чтобы записаться'}</button>
-          {planOpen && user && <CleanupPlanForm marker={marker} onAdd={(startsAt, count) => { act(addCleanupSlot(marker.id, startsAt, count), 'Время уборки добавлено.'); setPlanOpen(false) }} onJoin={(slotId, count) => { act(joinCleanupSlot(marker.id, slotId, count), 'Вы записаны на уборку.'); setPlanOpen(false) }} />}
+          {planOpen && user && <CleanupPlanForm marker={marker} onAdd={async (startsAt, count) => { const success = await act(addCleanupSlot(marker.id, startsAt, count), 'Время уборки добавлено.'); if (success) setPlanOpen(false); return success }} onJoin={async (slotId, count) => { const success = await act(joinCleanupSlot(marker.id, slotId, count), 'Вы записаны на уборку.'); if (success) setPlanOpen(false); return success }} />}
         </section>
         {notice && <button className="drawer-message" onClick={() => setNotice('')}>{notice}</button>}
       </div>
     </aside>
-    {proofOpen && <CleanupProofModal onClose={() => setProofOpen(false)} onSubmit={(photo) => { act(requestCleanup(marker.id, photo), 'Метка переведена в статус «На проверке» на 24 часа.'); setProofOpen(false) }} />}
+    {proofOpen && <CleanupProofModal onClose={() => setProofOpen(false)} onSubmit={async (photo) => { const success = await act(requestCleanup(marker.id, photo), 'Метка переведена в статус «На проверке» на 24 часа.'); if (success) setProofOpen(false); return success }} />}
   </>
 }
 
-function CleanupProofModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (photo: string) => void }) {
+function CleanupProofModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (photo: File) => Promise<boolean> }) {
   const [photo, setPhoto] = useState('')
+  const [photoFile, setPhotoFile] = useState<File>()
   const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const choose = (file?: File) => {
     if (!file) return
     if (!file.type.startsWith('image/')) { setError('Выберите изображение.'); return }
-    const reader = new FileReader()
-    reader.onload = () => { setPhoto(String(reader.result)); setError('') }
-    reader.readAsDataURL(file)
+    if (file.size > 8 * 1024 * 1024) { setError('Размер фотографии не должен превышать 8 МБ.'); return }
+    setPhoto((current) => { if (current.startsWith('blob:')) URL.revokeObjectURL(current); return URL.createObjectURL(file) })
+    setPhotoFile(file)
+    setError('')
   }
-  return <div className="modal-backdrop cleanup-proof-backdrop" onMouseDown={onClose}><section className="cleanup-proof-modal" role="dialog" aria-modal="true" aria-labelledby="cleanup-proof-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={onClose} aria-label="Закрыть"><X size={20} /></button><p className="eyebrow">Проверка уборки</p><h2 id="cleanup-proof-title">Покажите результат уборки</h2><p className="muted">После отправки метка станет серой и автоматически исчезнет через 24 часа, если никто не нажмёт «Мусор не убран».</p><button type="button" className={`proof-upload${photo ? '' : ' empty'}`} onClick={() => fileRef.current?.click()}>{photo ? <img src={photo} alt="Фото после уборки" /> : <span><ImagePlus /> Выбрать фотографию</span>}</button><input ref={fileRef} hidden type="file" accept="image/*" onChange={(event) => choose(event.target.files?.[0])} />{error && <p className="field-error">{error}</p>}<button className="button button-wide" disabled={!photo} onClick={() => onSubmit(photo)}><CheckCircle2 size={18} /> Отправить на проверку</button></section></div>
+  useEffect(() => () => { if (photo.startsWith('blob:')) URL.revokeObjectURL(photo) }, [photo])
+  const submit = async () => {
+    if (!photoFile) return
+    setPending(true)
+    const success = await onSubmit(photoFile)
+    if (!success) setPending(false)
+  }
+  return <div className="modal-backdrop cleanup-proof-backdrop" onMouseDown={() => { if (!pending) onClose() }}><section className="cleanup-proof-modal" role="dialog" aria-modal="true" aria-labelledby="cleanup-proof-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" disabled={pending} onClick={onClose} aria-label="Закрыть"><X size={20} /></button><p className="eyebrow">Проверка уборки</p><h2 id="cleanup-proof-title">Покажите результат уборки</h2><p className="muted">После отправки метка станет серой и автоматически исчезнет через 24 часа, если автор не нажмёт «Мусор не убран».</p><button type="button" className={`proof-upload${photo ? '' : ' empty'}`} onClick={() => fileRef.current?.click()}>{photo ? <img src={photo} alt="Фото после уборки" /> : <span><ImagePlus /> Выбрать фотографию</span>}</button><input ref={fileRef} hidden type="file" accept="image/*" onChange={(event) => choose(event.target.files?.[0])} />{error && <p className="field-error">{error}</p>}<button className="button button-wide" disabled={!photoFile || pending} onClick={() => void submit()}><CheckCircle2 size={18} /> {pending ? 'Отправляем…' : 'Отправить на проверку'}</button></section></div>
 }
 
-function CleanupPlanForm({ marker, onAdd, onJoin }: { marker: EcoMarker; onAdd: (startsAt: string, count: number) => void; onJoin: (slotId: number, count: number) => void }) {
+function CleanupPlanForm({ marker, onAdd, onJoin }: { marker: EcoMarker; onAdd: (startsAt: string, count: number) => Promise<boolean>; onJoin: (slotId: number, count: number) => Promise<boolean> }) {
   const slots = marker.cleanupSlots.filter((slot) => new Date(slot.startsAt).getTime() > Date.now())
   const defaults = defaultCleanupTime()
   const [choice, setChoice] = useState('new')
@@ -92,7 +107,8 @@ function CleanupPlanForm({ marker, onAdd, onJoin }: { marker: EcoMarker; onAdd: 
   const [time, setTime] = useState(defaults.time)
   const [peopleCount, setPeopleCount] = useState(1)
   const [error, setError] = useState('')
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const [pending, setPending] = useState(false)
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const count = Math.max(1, Math.min(100, peopleCount || 1))
     if (choice === 'new') {
@@ -100,14 +116,16 @@ function CleanupPlanForm({ marker, onAdd, onJoin }: { marker: EcoMarker; onAdd: 
       if (!date || !time || Number.isNaN(startsAt.getTime())) { setError('Укажите дату и время уборки.'); return }
       if (startsAt.getTime() <= Date.now()) { setError('Выберите время в будущем.'); return }
       setError('')
-      onAdd(startsAt.toISOString(), count)
+      setPending(true)
+      if (!await onAdd(startsAt.toISOString(), count)) setPending(false)
       return
     }
     if (!slots.some((slot) => String(slot.id) === choice)) { setError('Выберите доступное время.'); return }
     setError('')
-    onJoin(Number(choice), count)
+    setPending(true)
+    if (!await onJoin(Number(choice), count)) setPending(false)
   }
-  return <form className="cleanup-plan-form" onSubmit={submit} noValidate><fieldset><legend>Выберите время</legend><button type="button" className={choice === 'new' ? 'active' : ''} onClick={() => { setChoice('new'); setError('') }}><CalendarClock size={16} /><span>Новое время<small>Предложить дату и время</small></span></button>{slots.map((slot) => <button type="button" className={choice === String(slot.id) ? 'active' : ''} key={slot.id} onClick={() => { setChoice(String(slot.id)); setError('') }}><CalendarClock size={16} /><span>{formatSlotDate(slot.startsAt)}<small>{slot.participants.reduce((sum, participant) => sum + participant.peopleCount, 0)} чел. уже идут</small></span></button>)}</fieldset>{choice === 'new' && <div className="cleanup-date-time"><label>Дата<input required type="date" value={date} min={localDateValue(new Date())} onChange={(event) => setDate(event.target.value)} /></label><label>Время<input required type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label></div>}<label>Количество человек<input required type="number" min="1" max="100" value={peopleCount} onChange={(event) => setPeopleCount(Number(event.target.value))} /></label>{error && <p className="field-error" role="alert">{error}</p>}<button className="button button-wide" type="submit">{choice === 'new' ? 'Создать и записаться' : 'Записаться на это время'}</button></form>
+  return <form className="cleanup-plan-form" onSubmit={(event) => void submit(event)} noValidate><fieldset disabled={pending}><legend>Выберите время</legend><button type="button" className={choice === 'new' ? 'active' : ''} onClick={() => { setChoice('new'); setError('') }}><CalendarClock size={16} /><span>Новое время<small>Предложить дату и время</small></span></button>{slots.map((slot) => <button type="button" className={choice === String(slot.id) ? 'active' : ''} key={slot.id} onClick={() => { setChoice(String(slot.id)); setError('') }}><CalendarClock size={16} /><span>{formatSlotDate(slot.startsAt)}<small>{slot.participants.reduce((sum, participant) => sum + participant.peopleCount, 0)} чел. уже идут</small></span></button>)}</fieldset>{choice === 'new' && <div className="cleanup-date-time"><label>Дата<input required disabled={pending} type="date" value={date} min={localDateValue(new Date())} onChange={(event) => setDate(event.target.value)} /></label><label>Время<input required disabled={pending} type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label></div>}<label>Количество человек<input required disabled={pending} type="number" min="1" max="100" value={peopleCount} onChange={(event) => setPeopleCount(Number(event.target.value))} /></label>{error && <p className="field-error" role="alert">{error}</p>}<button className="button button-wide" disabled={pending} type="submit">{pending ? 'Сохраняем…' : choice === 'new' ? 'Создать и записаться' : 'Записаться на это время'}</button></form>
 }
 
 function defaultCleanupTime() {

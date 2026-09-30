@@ -18,7 +18,7 @@ const pageFromHash = (): Page => {
 }
 
 function Site() {
-  const { markers, user } = useStore()
+  const { markers, user, error, clearError } = useStore()
   const [page, setPage] = useState<Page>(pageFromHash)
   const [authOpen, setAuthOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
@@ -75,6 +75,7 @@ function Site() {
   }, [page])
 
   return <div className="app-shell">
+    {error && <button className="api-error-banner" onClick={clearError} role="alert">{error} · Закрыть</button>}
     <Header page={page} onNavigate={navigate} onAuth={requestAuth} />
     <Suspense fallback={<main className="page-loading" aria-label="Страница загружается"><span /></main>}>
       {page === 'home' && <HomePage onNavigate={navigate} onSelect={(marker) => setSelectedId(marker.id)} onAdd={requestAdd} />}
