@@ -6,12 +6,13 @@ import { useStore } from '../store'
 const volumeLabel: Record<WasteVolume, string> = { small: 'Немного', medium: 'Средне', large: 'Много' }
 
 export function MarkerDrawer({ marker, onClose, onEdit }: { marker: EcoMarker; onClose: () => void; onEdit: (marker: EcoMarker) => void }) {
-  const { user, requestCleanup, undoCleanup, confirmCleanup, addCleanupSlot, joinCleanupSlot } = useStore()
+  const { user, requestCleanup, undoCleanup, confirmCleanup, addCleanupSlot, joinCleanupSlot, removeCleanupSlot } = useStore()
   const [proofOpen, setProofOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const [now, setNow] = useState(Date.now())
   const isOwner = Boolean(user && marker.creatorEmail.toLowerCase() === user.email.toLowerCase())
+  const canRemoveSlot = (creatorEmail: string) => Boolean(user && (isOwner || creatorEmail.toLowerCase() === user.email.toLowerCase()))
   const activeSlots = marker.cleanupSlots.filter((slot) => new Date(slot.startsAt).getTime() > now)
   const reviewUntil = marker.cleanupRequest?.reviewUntil
 
@@ -46,7 +47,8 @@ export function MarkerDrawer({ marker, onClose, onEdit }: { marker: EcoMarker; o
         </>}
 
         {marker.status !== 'active' && reviewUntil && <section className="cleanup-review-card">
-          <div className="cleanup-review-head"><Clock3 /><span><strong>На проверке</strong><small>До автоматического удаления: {formatRemaining(reviewUntil, now)}</small></span></div>
+          <div className="cleanup-review-head"><Clock3 /><span><strong>На проверке</strong><small>Автор метки может подтвердить или отменить уборку</small></span></div>
+          <div className="cleanup-countdown" role="timer"><span>До автоматического удаления</span><time dateTime={reviewUntil}>{formatRemaining(reviewUntil, now)}</time></div>
           {marker.cleanupRequest?.evidencePhoto && <img src={marker.cleanupRequest.evidencePhoto} alt="Фото после уборки" />}
           <p>{marker.cleanupRequest ? `Фото добавил(а) ${marker.cleanupRequest.requestedByName}. ` : ''}{isOwner ? 'Проверьте результат и подтвердите уборку либо верните метку в активные.' : 'Результат уборки ожидает решения автора метки.'}</p>
           {isOwner && <div className="cleanup-actions">
@@ -57,7 +59,7 @@ export function MarkerDrawer({ marker, onClose, onEdit }: { marker: EcoMarker; o
 
         <section className="cleanup-planning">
           <div className="cleanup-planning-title"><Users size={20} /><div><strong>Групповая уборка</strong><small>{activeSlots.length ? `${activeSlots.length} ${slotWord(activeSlots.length)} запланировано` : 'Предложите удобные дату и время'}</small></div></div>
-          {activeSlots.map((slot) => <div className="cleanup-slot" key={slot.id}><CalendarClock size={17} /><div><strong>{formatSlotDate(slot.startsAt)}</strong><small>{slot.participants.reduce((sum, participant) => sum + participant.peopleCount, 0)} чел. · создал(а) {slot.creatorName}</small></div></div>)}
+          {activeSlots.map((slot) => <div className="cleanup-slot" key={slot.id}><CalendarClock size={17} /><div><strong>{formatSlotDate(slot.startsAt)}</strong><small>{slot.participants.reduce((sum, participant) => sum + participant.peopleCount, 0)} чел. · создал(а) {slot.creatorName}</small></div>{canRemoveSlot(slot.creatorEmail) && <button type="button" className="cleanup-slot-remove" title="Удалить группу" aria-label={`Удалить группу на ${formatSlotDate(slot.startsAt)}`} onClick={() => act(removeCleanupSlot(marker.id, slot.id), 'Группа удалена из расписания.')}><Trash2 size={15} /></button>}</div>)}
           <button className="button button-ghost button-wide" disabled={!user} onClick={() => setPlanOpen((value) => !value)}><Users size={17} /> {user ? 'Я приду' : 'Войдите, чтобы записаться'}</button>
           {planOpen && user && <CleanupPlanForm marker={marker} onAdd={(startsAt, count) => { act(addCleanupSlot(marker.id, startsAt, count), 'Время уборки добавлено.'); setPlanOpen(false) }} onJoin={(slotId, count) => { act(joinCleanupSlot(marker.id, slotId, count), 'Вы записаны на уборку.'); setPlanOpen(false) }} />}
         </section>

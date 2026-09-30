@@ -22,6 +22,7 @@ type Store = {
   confirmCleanup: (id: number) => boolean
   addCleanupSlot: (markerId: number, startsAt: string, peopleCount: number) => boolean
   joinCleanupSlot: (markerId: number, slotId: number, peopleCount: number) => boolean
+  removeCleanupSlot: (markerId: number, slotId: number) => boolean
 }
 
 const StoreContext = createContext<Store | null>(null)
@@ -227,7 +228,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return true
     },
     joinCleanupSlot: (markerId, slotId, peopleCount) => {
-      if (!user || !markers.some((item) => item.id === markerId)) return false
+      if (!user || !markers.some((item) => item.id === markerId && item.cleanupSlots.some((slot) => slot.id === slotId))) return false
       const participant = { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), peopleCount }
       setMarkers((current) => current.map((item) => item.id === markerId ? {
         ...item,
@@ -235,6 +236,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...slot,
           participants: [...slot.participants.filter((entry) => !sameEmail(entry.email, user.email)), participant],
         } : slot),
+      } : item))
+      return true
+    },
+    removeCleanupSlot: (markerId, slotId) => {
+      if (!user) return false
+      const marker = markers.find((item) => item.id === markerId)
+      const slot = marker?.cleanupSlots.find((item) => item.id === slotId)
+      const allowed = marker && slot && (sameEmail(marker.creatorEmail, user.email) || sameEmail(slot.creatorEmail, user.email))
+      if (!allowed) return false
+      setMarkers((current) => current.map((item) => item.id === markerId ? {
+        ...item,
+        cleanupSlots: item.cleanupSlots.filter((cleanupSlot) => cleanupSlot.id !== slotId),
       } : item))
       return true
     },

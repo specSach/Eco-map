@@ -3,7 +3,7 @@ import { Footer } from './components/Footer'
 import { Header } from './components/Header'
 import { HomePage } from './pages/HomePage'
 import { StoreProvider, useStore } from './store'
-import type { EcoMarker, Page } from './types'
+import type { EcoMarker, MapView, Page } from './types'
 
 const MapPage = lazy(() => import('./pages/MapPage').then((module) => ({ default: module.MapPage })))
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then((module) => ({ default: module.ProfilePage })))
@@ -25,6 +25,7 @@ function Site() {
   const [authIntent, setAuthIntent] = useState<'add' | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [editing, setEditing] = useState<EcoMarker | null>(null)
+  const [mapView, setMapView] = useState<MapView>({ center: [57, 42], zoom: 3 })
   const selected = selectedId === null ? null : markers.find((marker) => marker.id === selectedId) ?? null
   const navigate = (next: Page) => { setPage(next); location.hash = next; window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const requestAdd = () => {
@@ -77,14 +78,14 @@ function Site() {
     <Header page={page} onNavigate={navigate} onAuth={requestAuth} />
     <Suspense fallback={<main className="page-loading" aria-label="Страница загружается"><span /></main>}>
       {page === 'home' && <HomePage onNavigate={navigate} onSelect={(marker) => setSelectedId(marker.id)} onAdd={requestAdd} />}
-      {page === 'map' && <MapPage onAdd={requestAdd} onAuth={requestAuth} onSelect={(marker) => setSelectedId(marker.id)} />}
+      {page === 'map' && <MapPage onAdd={requestAdd} onAuth={requestAuth} onSelect={(marker) => setSelectedId(marker.id)} onViewChange={setMapView} />}
       {page === 'profile' && <ProfilePage onLogout={() => navigate('home')} />}
       {page === 'privacy' && <PrivacyPage />}
     </Suspense>
     <Footer onNavigate={navigate} />
     <Suspense fallback={null}>
       {authOpen && <AuthModal initialMode={authIntent === 'add' ? 'register' : 'login'} onClose={() => { setAuthOpen(false); setAuthIntent(null) }} onSuccess={() => { if (authIntent === 'add') setAddOpen(true); setAuthIntent(null) }} />}
-      {addOpen && <AddMarkerModal marker={editing} onClose={() => { setAddOpen(false); setEditing(null) }} />}
+      {addOpen && <AddMarkerModal marker={editing} initialMapView={mapView} onClose={() => { setAddOpen(false); setEditing(null) }} />}
       {selected && <><div className="drawer-backdrop" onClick={() => setSelectedId(null)} /><MarkerDrawer marker={selected} onClose={() => setSelectedId(null)} onEdit={(marker) => { setSelectedId(null); setEditing(marker); setAddOpen(true) }} /></>}
     </Suspense>
   </div>

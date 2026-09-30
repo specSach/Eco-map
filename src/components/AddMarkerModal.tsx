@@ -2,18 +2,20 @@ import { Camera, Crosshair, ImagePlus, LocateFixed, MapPin, Search, X } from 'lu
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { categories } from '../data'
 import { useStore } from '../store'
-import type { EcoMarker, WasteVolume } from '../types'
+import type { EcoMarker, MapView, WasteVolume } from '../types'
 import { LazyEcoMap } from './LazyEcoMap'
 
 const defaultPhoto = 'https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&w=900&q=80'
 
-export function AddMarkerModal({ onClose, marker }: { onClose: () => void; marker?: EcoMarker | null }) {
+export function AddMarkerModal({ onClose, marker, initialMapView }: { onClose: () => void; marker?: EcoMarker | null; initialMapView: MapView }) {
   const { addMarker, updateMarker } = useStore()
-  const [position, setPosition] = useState<[number, number]>(marker ? [marker.lat, marker.lng] : [55.7558, 37.6176])
+  const initialPosition: [number, number] = marker ? [marker.lat, marker.lng] : initialMapView.center
+  const [position, setPosition] = useState<[number, number]>(initialPosition)
+  const [focusPosition, setFocusPosition] = useState<[number, number]>()
   const [selected, setSelected] = useState<string[]>(marker?.categories ?? ['Пластик'])
   const [volume, setVolume] = useState<WasteVolume>(marker?.volume ?? 'small')
   const [photo, setPhoto] = useState(marker?.photo ?? defaultPhoto)
-  const [address, setAddress] = useState(marker?.address ?? 'Москва, центр')
+  const [address, setAddress] = useState(marker?.address ?? `Координаты: ${initialPosition[0].toFixed(5)}, ${initialPosition[1].toFixed(5)}`)
   const [searchState, setSearchState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -26,11 +28,12 @@ export function AddMarkerModal({ onClose, marker }: { onClose: () => void; marke
 
   const locate = () => {
     navigator.geolocation?.getCurrentPosition((value) => {
-      selectPosition([value.coords.latitude, value.coords.longitude])
+      selectPosition([value.coords.latitude, value.coords.longitude], true)
     })
   }
-  const selectPosition = (nextPosition: [number, number]) => {
+  const selectPosition = (nextPosition: [number, number], focus = false) => {
     setPosition(nextPosition)
+    if (focus) setFocusPosition(nextPosition)
     setAddress(`Координаты: ${nextPosition[0].toFixed(5)}, ${nextPosition[1].toFixed(5)}`)
   }
   const geocode = async () => {
@@ -40,7 +43,9 @@ export function AddMarkerModal({ onClose, marker }: { onClose: () => void; marke
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`, { headers: { 'Accept-Language': 'ru' } })
       const [result] = await response.json() as Array<{ lat: string; lon: string; display_name: string }>
       if (!result) throw new Error('not found')
-      setPosition([Number(result.lat), Number(result.lon)])
+      const foundPosition: [number, number] = [Number(result.lat), Number(result.lon)]
+      setPosition(foundPosition)
+      setFocusPosition(foundPosition)
       setAddress(result.display_name)
       setSearchState('idle')
     } catch {
@@ -105,7 +110,7 @@ export function AddMarkerModal({ onClose, marker }: { onClose: () => void; marke
           </div>
           <div className="picker-panel">
             <div className="picker-title"><MapPin size={18} /><span><strong>Укажите точку на карте</strong><small>Нажмите в нужном месте</small></span></div>
-            <LazyEcoMap eager pickerPosition={position} pickerVolume={volume} onPositionChange={selectPosition} center={position} zoom={14} onEscape={onClose} />
+            <LazyEcoMap eager pickerPosition={position} pickerVolume={volume} onPositionChange={selectPosition} center={initialPosition} zoom={marker ? 14 : initialMapView.zoom} focusPosition={focusPosition} focusZoom={15} onEscape={onClose} />
             <div className="coords"><Crosshair size={16} /> {position[0].toFixed(5)}, {position[1].toFixed(5)}</div>
             <button className="button button-wide" type="submit" disabled={!selected.length}><Camera size={18} /> {marker ? 'Сохранить изменения' : 'Добавить точку'}</button>
             <p className="form-consent">Публикуя точку, вы подтверждаете корректность данных</p>

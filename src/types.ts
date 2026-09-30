@@ -2,6 +2,11 @@ export type Page = 'home' | 'map' | 'profile' | 'privacy'
 export type WasteVolume = 'small' | 'medium' | 'large'
 export type MarkerStatus = 'active' | 'cleanup_requested'
 
+export type MapView = {
+  center: [number, number]
+  zoom: number
+}
+
 export type CleanupRequest = {
   requestedByEmail: string
   requestedByName: string

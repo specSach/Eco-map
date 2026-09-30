@@ -2,7 +2,7 @@ import L from 'leaflet'
 import { useEffect, useState } from 'react'
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import type { EcoMarker, WasteVolume } from '../types'
+import type { EcoMarker, MapView, WasteVolume } from '../types'
 
 const colors: Record<WasteVolume, string> = { small: '#48a46b', medium: '#e3a52b', large: '#e15d4f' }
 const russiaCenter: [number, number] = [57, 42]
@@ -50,17 +50,19 @@ function MarkerLayer({ markers, selectedId, onMarkerClick }: Pick<EcoMapProps, '
   ))}</>
 }
 
-function MapInteractions({ markers, onVisibleCountChange, onEscape }: { markers: EcoMarker[]; onVisibleCountChange?: (count: number) => void; onEscape?: () => void }) {
+function MapInteractions({ markers, onVisibleCountChange, onViewChange, onEscape }: { markers: EcoMarker[]; onVisibleCountChange?: (count: number) => void; onViewChange?: (view: MapView) => void; onEscape?: () => void }) {
   const map = useMap()
   useEffect(() => {
     const update = () => {
       const bounds = map.getBounds()
       onVisibleCountChange?.(markers.filter((marker) => bounds.contains([marker.lat, marker.lng])).length)
+      const center = map.getCenter()
+      onViewChange?.({ center: [center.lat, center.lng], zoom: map.getZoom() })
     }
     update()
     map.on('moveend zoomend resize', update)
     return () => { map.off('moveend zoomend resize', update) }
-  }, [map, markers, onVisibleCountChange])
+  }, [map, markers, onVisibleCountChange, onViewChange])
 
   useEffect(() => {
     const container = map.getContainer()
@@ -99,17 +101,18 @@ export type EcoMapProps = {
   interactive?: boolean
   className?: string
   onVisibleCountChange?: (count: number) => void
+  onViewChange?: (view: MapView) => void
   onEscape?: () => void
 }
 
-export function EcoMap({ markers = [], selectedId, onMarkerClick, pickerPosition, pickerVolume = 'small', onPositionChange, center = russiaCenter, focusPosition, focusZoom = 15, zoom = 3, interactive = true, className = '', onVisibleCountChange, onEscape }: EcoMapProps) {
+export function EcoMap({ markers = [], selectedId, onMarkerClick, pickerPosition, pickerVolume = 'small', onPositionChange, center = russiaCenter, focusPosition, focusZoom = 15, zoom = 3, interactive = true, className = '', onVisibleCountChange, onViewChange, onEscape }: EcoMapProps) {
   return (
     <MapContainer center={center} zoom={zoom} scrollWheelZoom={interactive} dragging={interactive} zoomControl={interactive} keyboard={interactive} touchZoom={interactive} doubleClickZoom={interactive} boxZoom={interactive} wheelDebounceTime={35} wheelPxPerZoomLevel={90} attributionControl className={`eco-map ${className}`}>
       <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       <MarkerLayer markers={markers} selectedId={selectedId} onMarkerClick={onMarkerClick} />
       {pickerPosition && onPositionChange && <PositionPicker position={pickerPosition} volume={pickerVolume} onChange={onPositionChange} />}
-      <FlyTo position={pickerPosition ?? focusPosition} zoom={pickerPosition ? 15 : focusZoom} />
-      {interactive && <MapInteractions markers={markers} onVisibleCountChange={onVisibleCountChange} onEscape={onEscape} />}
+      <FlyTo position={focusPosition} zoom={focusZoom} />
+      {interactive && <MapInteractions markers={markers} onVisibleCountChange={onVisibleCountChange} onViewChange={onViewChange} onEscape={onEscape} />}
     </MapContainer>
   )
 }

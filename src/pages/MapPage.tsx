@@ -2,9 +2,9 @@ import { Crosshair, Keyboard, ListFilter, LocateFixed, MapPin, Plus, Search } fr
 import { useCallback, useMemo, useState, type FormEvent } from 'react'
 import { LazyEcoMap } from '../components/LazyEcoMap'
 import { useStore } from '../store'
-import type { EcoMarker, WasteVolume } from '../types'
+import type { EcoMarker, MapView, WasteVolume } from '../types'
 
-export function MapPage({ onAdd, onAuth, onSelect }: { onAdd: () => void; onAuth: () => void; onSelect: (m: EcoMarker) => void }) {
+export function MapPage({ onAdd, onAuth, onSelect, onViewChange }: { onAdd: () => void; onAuth: () => void; onSelect: (m: EcoMarker) => void; onViewChange: (view: MapView) => void }) {
   const { markers, user } = useStore()
   const [filter, setFilter] = useState<'all' | WasteVolume | 'review'>('all')
   const [search, setSearch] = useState('')
@@ -52,7 +52,7 @@ export function MapPage({ onAdd, onAuth, onSelect }: { onAdd: () => void; onAuth
           <div className="filter-row"><span><ListFilter size={17} /> Категория:</span>{([['all', 'Все'], ['small', 'Немного'], ['medium', 'Средне'], ['large', 'Много'], ['review', 'На проверке']] as const).map(([value, label]) => <button key={value} className={filter === value ? 'active' : ''} onClick={() => setFilter(value)}>{value !== 'all' && <i className={`volume-dot ${value === 'review' ? 'gray' : value}`} />}{label}</button>)}</div>
         </div>
         <div className="full-map-wrap">
-          <LazyEcoMap eager markers={shown} onMarkerClick={onSelect} focusPosition={focusPosition} focusZoom={11} zoom={3} onVisibleCountChange={updateVisibleCount} />
+          <LazyEcoMap eager markers={shown} onMarkerClick={onSelect} focusPosition={focusPosition} focusZoom={11} zoom={3} onVisibleCountChange={updateVisibleCount} onViewChange={onViewChange} />
           <div className="map-counter"><MapPin size={18} /><span><strong>{visibleCount}</strong> {pointWord(visibleCount)} в видимой области</span></div>
           <div className="map-keyboard-hint"><Keyboard size={15} /> WASD / стрелки · + / − · тачпад</div>
           <button className="locate-fab" title="Моё местоположение" aria-label="Показать моё местоположение" onClick={() => navigator.geolocation?.getCurrentPosition((value) => setFocusPosition([value.coords.latitude, value.coords.longitude]))}><Crosshair size={20} /></button>
