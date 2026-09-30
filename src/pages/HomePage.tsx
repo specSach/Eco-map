@@ -4,7 +4,8 @@ import type { EcoMarker, Page } from '../types'
 import { LazyEcoMap } from '../components/LazyEcoMap'
 
 export function HomePage({ onNavigate, onSelect, onAdd }: { onNavigate: (page: Page) => void; onSelect: (m: EcoMarker) => void; onAdd: () => void }) {
-  const { markers } = useStore()
+  const { markers, statistics } = useStore()
+  const activePoints = markers.filter((marker) => marker.status === 'active').length
   const scrollToHow = () => document.getElementById('how')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   return (
     <main>
@@ -14,20 +15,20 @@ export function HomePage({ onNavigate, onSelect, onAdd }: { onNavigate: (page: P
           <h1>Замечай.<br /><em>Отмечай.</em> Меняй.</h1>
           <p>Интерактивная карта загрязнений, которая объединяет тех, кому не всё равно. Добавляйте проблемные места и помогайте им исчезать.</p>
           <div className="hero-actions"><button className="button" onClick={() => onNavigate('map')}><MapPin size={18} /> Открыть карту</button><button className="text-link link-button" onClick={scrollToHow}>Как это работает <ArrowRight size={17} /></button></div>
-          <div className="hero-proof"><div className="proof-faces"><span>АК</span><span>МП</span><span>ЕС</span><span>+2к</span></div><p><strong>2 840 человек</strong><br />уже делают город чище</p></div>
+          <div className="hero-proof"><div className="proof-faces" aria-hidden="true"><span><Users size={18} /></span></div><p><strong>{formatCount(statistics.registeredUsers)} {personWord(statistics.registeredUsers)}</strong><br />уже {statistics.registeredUsers === 1 ? 'делает' : 'делают'} город чище</p></div>
         </div>
         <div className="hero-visual">
           <div className="hero-map-card">
             <LazyEcoMap markers={markers} onMarkerClick={onSelect} interactive={false} zoom={3} />
             <div className="live-label"><i /> Карта обновляется</div>
-            <div className="map-stat"><strong>{markers.length}</strong><span>активных точек<br />на карте</span></div>
+            <div className="map-stat"><strong>{formatCount(activePoints)}</strong><span>{pluralForm(activePoints, 'активная точка', 'активные точки', 'активных точек')}<br />на карте</span></div>
           </div>
           <div className="leaf-orbit"><Leaf size={23} /></div>
         </div>
       </section>
 
       <section className="impact-strip">
-        <div><strong>2 840</strong><span>участников</span></div><i /><div><strong>1 247</strong><span>точек добавлено</span></div><i /><div><strong>863</strong><span>места уже очищено</span></div><i /><div><strong>69%</strong><span>точек убирают</span></div>
+        <div><strong>{formatCount(statistics.registeredUsers)}</strong><span>{pluralForm(statistics.registeredUsers, 'участник', 'участника', 'участников')}</span></div><i /><div><strong>{formatCount(statistics.pointsAdded)}</strong><span>{pluralForm(statistics.pointsAdded, 'точка добавлена', 'точки добавлены', 'точек добавлено')}</span></div><i /><div><strong>{formatCount(statistics.placesCleaned)}</strong><span>{pluralForm(statistics.placesCleaned, 'место уже очищено', 'места уже очищены', 'мест уже очищено')}</span></div><i /><div><strong>{formatCount(statistics.pointsUnderReview)}</strong><span>{pluralForm(statistics.pointsUnderReview, 'точка на проверке', 'точки на проверке', 'точек на проверке')}</span></div>
       </section>
 
       <section className="section-shell how-section" id="how">
@@ -58,4 +59,23 @@ export function HomePage({ onNavigate, onSelect, onAdd }: { onNavigate: (page: P
       <section className="cta section-shell"><div className="cta-leaf"><Leaf /></div><span className="eyebrow">Начните сегодня</span><h2>Ваш район может стать чище</h2><p>Откройте карту, найдите ближайшую точку и сделайте первый шаг.</p><button className="button button-light" onClick={() => onNavigate('map')}>Перейти к карте <ArrowRight size={18} /></button></section>
     </main>
   )
+}
+
+const countFormatter = new Intl.NumberFormat('ru-RU')
+
+function formatCount(value: number) {
+  return countFormatter.format(value)
+}
+
+function personWord(value: number) {
+  return pluralForm(value, 'человек', 'человека', 'человек')
+}
+
+function pluralForm(value: number, one: string, few: string, many: string) {
+  const mod100 = value % 100
+  const mod10 = value % 10
+  if (mod100 >= 11 && mod100 <= 14) return many
+  if (mod10 === 1) return one
+  if (mod10 >= 2 && mod10 <= 4) return few
+  return many
 }

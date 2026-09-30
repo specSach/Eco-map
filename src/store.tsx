@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { initialMarkers } from './data'
 import { safeStorage } from './storage'
-import type { CleanupSlot, EcoMarker, User } from './types'
+import type { CleanupSlot, EcoMarker, EcoStatistics, User } from './types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -15,6 +15,7 @@ type Store = {
   updateUser: (user: User) => void
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>
   markers: EcoMarker[]
+  statistics: EcoStatistics
   addMarker: (marker: Omit<EcoMarker, 'id' | 'date' | 'author' | 'creatorEmail' | 'status' | 'cleanupSlots'>) => void
   updateMarker: (id: number, marker: Partial<Pick<EcoMarker, 'lat' | 'lng' | 'address' | 'categories' | 'volume' | 'description' | 'photo'>>) => boolean
   requestCleanup: (id: number, evidencePhoto: string) => boolean
@@ -29,6 +30,7 @@ const StoreContext = createContext<Store | null>(null)
 
 type StoredAccount = User & { passwordHash?: string }
 type Accounts = Record<string, StoredAccount>
+type ActivityTotals = Pick<EcoStatistics, 'pointsAdded' | 'placesCleaned'>
 
 const accountKey = (email: string) => email.trim().toLowerCase()
 
@@ -47,6 +49,18 @@ function saveAccount(user: User, passwordHash?: string) {
   safeStorage.set('eco-accounts', JSON.stringify(accounts))
 }
 
+function readActivityTotals(): ActivityTotals {
+  try {
+    const saved = JSON.parse(safeStorage.get('eco-activity-totals') || '{}') as Partial<ActivityTotals>
+    return {
+      pointsAdded: Number.isFinite(saved.pointsAdded) ? Math.max(0, Number(saved.pointsAdded)) : 0,
+      placesCleaned: Number.isFinite(saved.placesCleaned) ? Math.max(0, Number(saved.placesCleaned)) : 0,
+    }
+  } catch {
+    return { pointsAdded: 0, placesCleaned: 0 }
+  }
+}
+
 async function hashPassword(password: string) {
   const bytes = new TextEncoder().encode(password)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
@@ -61,15 +75,6 @@ function normalizeMarker(marker: EcoMarker, currentUser?: User | null): EcoMarke
     status: marker.status ?? 'active',
     cleanupSlots: Array.isArray(marker.cleanupSlots) ? marker.cleanupSlots : [],
   }
-}
-
-function processDeadlines(markers: EcoMarker[], now = Date.now()) {
-  const activeMarkers = markers.filter((marker) => {
-    if (marker.status === 'cleanup_requested' && marker.cleanupRequest && new Date(marker.cleanupRequest.reviewUntil).getTime() <= now) return false
-    return true
-  })
-
-  return activeMarkers.length === markers.length ? markers : activeMarkers
 }
 
 const sameEmail = (first?: string, second?: string) => Boolean(first && second && accountKey(first) === accountKey(second))
@@ -105,32 +110,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       // IDs 1–3 belonged to the first visual demo and are removed during migration.
       const parsed = saved ? (JSON.parse(saved) as EcoMarker[]).filter((marker) => marker.id > 3) : initialMarkers
-      return processDeadlines(parsed.map((marker) => normalizeMarker(marker, user)))
+      return parsed.map((marker) => normalizeMarker(marker, user))
     } catch {
       safeStorage.remove('eco-markers')
       return initialMarkers
     }
   })
+  const [registeredUserCount, setRegisteredUserCount] = useState(() => Object.keys(readAccounts()).length)
+  const [activityTotals, setActivityTotals] = useState<ActivityTotals>(() => {
+    const saved = readActivityTotals()
+    return { ...saved, pointsAdded: Math.max(saved.pointsAdded, markers.length) }
+  })
+  const processedCleanupIds = useRef(new Set<number>())
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
     safeStorage.set('eco-theme', dark ? 'dark' : 'light')
   }, [dark])
   useEffect(() => safeStorage.set('eco-markers', JSON.stringify(markers)), [markers])
+  useEffect(() => safeStorage.set('eco-activity-totals', JSON.stringify(activityTotals)), [activityTotals])
   useEffect(() => {
-    const timer = window.setInterval(() => setMarkers((current) => processDeadlines(current)), 1_000)
+    const removeExpired = () => {
+      const now = Date.now()
+      const expired = markers.filter((marker) => marker.status === 'cleanup_requested'
+        && marker.cleanupRequest
+        && new Date(marker.cleanupRequest.reviewUntil).getTime() <= now
+        && !processedCleanupIds.current.has(marker.id))
+      if (!expired.length) return
+      expired.forEach((marker) => processedCleanupIds.current.add(marker.id))
+      const expiredIds = new Set(expired.map((marker) => marker.id))
+      setMarkers((current) => current.filter((marker) => !expiredIds.has(marker.id)))
+      setActivityTotals((current) => ({ ...current, placesCleaned: current.placesCleaned + expired.length }))
+    }
+    removeExpired()
+    const timer = window.setInterval(removeExpired, 1_000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [markers])
 
   const value = useMemo<Store>(() => ({
     dark,
     setDark: setDarkState,
     user,
+    statistics: {
+      registeredUsers: registeredUserCount,
+      pointsAdded: activityTotals.pointsAdded,
+      placesCleaned: activityTotals.placesCleaned,
+      pointsUnderReview: markers.filter((marker) => marker.status === 'cleanup_requested').length,
+    },
     register: async (nextUser, password) => {
       if (readAccounts()[accountKey(nextUser.email)]) return false
       setUser(nextUser)
       safeStorage.set('eco-user', JSON.stringify(nextUser))
       saveAccount(nextUser, await hashPassword(password))
+      setRegisteredUserCount(Object.keys(readAccounts()).length)
       return true
     },
     authenticate: async (email, password) => {
@@ -169,17 +201,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return true
     },
     markers,
-    addMarker: (marker) => setMarkers((current) => [{
-      ...marker,
-      id: Date.now(),
-      date: new Intl.DateTimeFormat('ru-RU', {
-        timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
-      }).format(new Date()),
-      author: user ? `${user.firstName} ${user.lastName.charAt(0)}.` : 'Пользователь',
-      creatorEmail: user?.email ?? '',
-      status: 'active',
-      cleanupSlots: [],
-    }, ...current]),
+    addMarker: (marker) => {
+      setMarkers((current) => [{
+        ...marker,
+        id: Date.now(),
+        date: new Intl.DateTimeFormat('ru-RU', {
+          timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+        }).format(new Date()),
+        author: user ? `${user.firstName} ${user.lastName.charAt(0)}.` : 'Пользователь',
+        creatorEmail: user?.email ?? '',
+        status: 'active',
+        cleanupSlots: [],
+      }, ...current])
+      setActivityTotals((current) => ({ ...current, pointsAdded: current.pointsAdded + 1 }))
+    },
     updateMarker: (id, patch) => {
       const allowed = markers.some((marker) => marker.id === id && sameEmail(marker.creatorEmail, user?.email))
       if (!allowed) return false
@@ -190,6 +225,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!user) return false
       const marker = markers.find((item) => item.id === id)
       if (!marker || marker.status !== 'active') return false
+      processedCleanupIds.current.delete(id)
       const requestedAt = new Date()
       setMarkers((current) => current.map((item) => item.id === id ? {
         ...item,
@@ -206,6 +242,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     undoCleanup: (id) => {
       if (!user || !markers.some((item) => item.id === id && item.status === 'cleanup_requested' && sameEmail(item.creatorEmail, user.email))) return false
+      processedCleanupIds.current.add(id)
       setMarkers((current) => current.map((item) => item.id === id ? {
         ...item,
         status: 'active',
@@ -215,7 +252,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     confirmCleanup: (id) => {
       if (!user || !markers.some((item) => item.id === id && item.status === 'cleanup_requested' && sameEmail(item.creatorEmail, user.email))) return false
+      processedCleanupIds.current.add(id)
       setMarkers((current) => current.filter((item) => item.id !== id))
+      setActivityTotals((current) => ({ ...current, placesCleaned: current.placesCleaned + 1 }))
       return true
     },
     addCleanupSlot: (markerId, startsAt, peopleCount) => {
@@ -251,7 +290,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } : item))
       return true
     },
-  }), [dark, markers, user])
+  }), [activityTotals, dark, markers, registeredUserCount, user])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

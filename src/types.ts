@@ -7,6 +7,13 @@ export type MapView = {
   zoom: number
 }
 
+export type EcoStatistics = {
+  registeredUsers: number
+  pointsAdded: number
+  placesCleaned: number
+  pointsUnderReview: number
+}
+
 export type CleanupRequest = {
   requestedByEmail: string
   requestedByName: string
