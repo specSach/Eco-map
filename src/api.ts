@@ -1,5 +1,5 @@
 import { safeStorage } from './storage'
-import type { CleanupSlot, EcoMarker, PlatformStats, User, WasteVolume } from './types'
+import type { CleanupSlot, EcoMarker, PlatformStats, User, UserStats, WasteVolume } from './types'
 
 const apiBase = (import.meta.env.VITE_API_URL !== undefined
   ? import.meta.env.VITE_API_URL
@@ -132,6 +132,7 @@ export function hasToken() { return safeStorage.get(tokenKey) !== null }
 export async function getCurrentUser() { return toUser(await request<ApiUser>('/auth/me')) }
 export async function getMarkers() { return (await request<ApiMarker[]>('/markers')).map(toMarker) }
 export async function getStats() { return request<PlatformStats>('/stats') }
+export async function getMyStats() { return request<UserStats>('/users/me/stats') }
 
 export async function createMarker(marker: MarkerDraft, photoFile?: File) {
   return toMarker(await request<ApiMarker>('/markers', { method: 'POST', body: markerForm(marker, photoFile) }))

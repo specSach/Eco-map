@@ -1,5 +1,5 @@
 import { Camera, Crosshair, ImagePlus, LocateFixed, MapPin, Search, X } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { errorMessage } from '../api'
 import { categories } from '../data'
 import { useStore } from '../store'
@@ -10,18 +10,52 @@ const defaultPhoto = 'https://images.unsplash.com/photo-1532996122724-e3c354a0b1
 
 export function AddMarkerModal({ onClose, marker, initialMapView }: { onClose: () => void; marker?: EcoMarker | null; initialMapView: MapView }) {
   const { addMarker, updateMarker } = useStore()
-  const initialPosition: [number, number] = marker ? [marker.lat, marker.lng] : initialMapView.center
+  const initialLat = marker?.lat ?? initialMapView.center[0]
+  const initialLng = marker?.lng ?? initialMapView.center[1]
+  const initialPosition = useMemo<[number, number]>(() => [initialLat, initialLng], [initialLat, initialLng])
   const [position, setPosition] = useState<[number, number]>(initialPosition)
   const [focusPosition, setFocusPosition] = useState<[number, number]>()
   const [selected, setSelected] = useState<string[]>(marker?.categories ?? ['Пластик'])
   const [volume, setVolume] = useState<WasteVolume>(marker?.volume ?? 'small')
   const [photo, setPhoto] = useState(marker?.photo ?? defaultPhoto)
   const [photoFile, setPhotoFile] = useState<File>()
-  const [address, setAddress] = useState(marker?.address ?? `Координаты: ${initialPosition[0].toFixed(5)}, ${initialPosition[1].toFixed(5)}`)
+  const [address, setAddress] = useState(marker?.address ?? 'Определяем название местности…')
   const [searchState, setSearchState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [submitError, setSubmitError] = useState('')
   const [pending, setPending] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const reverseController = useRef<AbortController | null>(null)
+
+  const reverseGeocode = useCallback(async (nextPosition: [number, number]) => {
+    reverseController.current?.abort()
+    const controller = new AbortController()
+    reverseController.current = controller
+    setAddress('Определяем название местности…')
+    setSearchState('loading')
+    try {
+      const params = new URLSearchParams({
+        format: 'jsonv2',
+        lat: String(nextPosition[0]),
+        lon: String(nextPosition[1]),
+        zoom: '18',
+        addressdetails: '1',
+      })
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, {
+        headers: { 'Accept-Language': 'ru' },
+        signal: controller.signal,
+      })
+      if (!response.ok) throw new Error('not found')
+      const result = await response.json() as { display_name?: string }
+      const placeName = result.display_name?.trim()
+      if (!placeName) throw new Error('not found')
+      setAddress(placeName)
+      setSearchState('idle')
+    } catch (reason) {
+      if (reason instanceof DOMException && reason.name === 'AbortError') return
+      setAddress('')
+      setSearchState('error')
+    }
+  }, [])
 
   useEffect(() => {
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape' && !pending) onClose() }
@@ -33,10 +67,15 @@ export function AddMarkerModal({ onClose, marker, initialMapView }: { onClose: (
     if (photo.startsWith('blob:')) URL.revokeObjectURL(photo)
   }, [photo])
 
+  useEffect(() => {
+    if (!marker || /^Координаты:/i.test(marker.address.trim())) void reverseGeocode(initialPosition)
+    return () => reverseController.current?.abort()
+  }, [initialPosition, marker, reverseGeocode])
+
   const selectPosition = (nextPosition: [number, number], focus = false) => {
     setPosition(nextPosition)
     if (focus) setFocusPosition(nextPosition)
-    setAddress(`Координаты: ${nextPosition[0].toFixed(5)}, ${nextPosition[1].toFixed(5)}`)
+    void reverseGeocode(nextPosition)
   }
 
   const locate = () => navigator.geolocation?.getCurrentPosition((value) => {
@@ -45,6 +84,7 @@ export function AddMarkerModal({ onClose, marker, initialMapView }: { onClose: (
 
   const geocode = async () => {
     if (!address.trim()) return
+    reverseController.current?.abort()
     setSearchState('loading')
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`, { headers: { 'Accept-Language': 'ru' } })
@@ -107,8 +147,8 @@ export function AddMarkerModal({ onClose, marker, initialMapView }: { onClose: (
           <div className="add-fields">
             <div className="field-group">
               <div className="field-heading"><span>1</span><div><strong>Где находится мусор?</strong><small>Найдите адрес или укажите точку на карте</small></div></div>
-              <label className="search-input"><Search size={18} /><input required value={address} onChange={(event) => { setAddress(event.target.value); setSearchState('idle') }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void geocode() } }} placeholder="Введите адрес" /><button type="button" onClick={() => void geocode()}>{searchState === 'loading' ? 'Ищем…' : 'Найти'}</button><button type="button" onClick={locate}><LocateFixed size={18} /> <span>Я здесь</span></button></label>
-              {searchState === 'error' && <p className="field-error">Не нашли этот адрес. Уточните запрос или поставьте точку вручную.</p>}
+              <label className="search-input"><Search size={18} /><input required value={address} onChange={(event) => { reverseController.current?.abort(); setAddress(event.target.value); setSearchState('idle') }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void geocode() } }} placeholder="Введите адрес" /><button type="button" onClick={() => void geocode()}>{searchState === 'loading' ? 'Ищем…' : 'Найти'}</button><button type="button" onClick={locate}><LocateFixed size={18} /> <span>Я здесь</span></button></label>
+              {searchState === 'error' && <p className="field-error">Не удалось определить местность. Введите адрес вручную или повторите выбор точки.</p>}
             </div>
             <div className="field-group">
               <div className="field-heading"><span>2</span><div><strong>Что здесь лежит?</strong><small>Можно выбрать несколько категорий</small></div></div>
@@ -128,7 +168,7 @@ export function AddMarkerModal({ onClose, marker, initialMapView }: { onClose: (
             <LazyEcoMap eager pickerPosition={position} pickerVolume={volume} onPositionChange={selectPosition} center={initialPosition} zoom={marker ? 14 : initialMapView.zoom} focusPosition={focusPosition} focusZoom={15} onEscape={onClose} />
             <div className="coords"><Crosshair size={16} /> {position[0].toFixed(5)}, {position[1].toFixed(5)}</div>
             {submitError && <p className="field-error" role="alert">{submitError}</p>}
-            <button className="button button-wide" type="submit" disabled={!selected.length || pending}>{pending ? 'Сохраняем…' : <><Camera size={18} /> {marker ? 'Сохранить изменения' : 'Добавить точку'}</>}</button>
+            <button className="button button-wide" type="submit" disabled={!selected.length || !address.trim() || searchState === 'loading' || pending}>{pending ? 'Сохраняем…' : <><Camera size={18} /> {marker ? 'Сохранить изменения' : 'Добавить точку'}</>}</button>
             <p className="form-consent">Публикуя точку, вы подтверждаете корректность данных</p>
           </div>
         </form>

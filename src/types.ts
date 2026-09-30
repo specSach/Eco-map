@@ -14,6 +14,10 @@ export type PlatformStats = {
   cleanupRatePercent: number
 }
 
+export type UserStats = {
+  totalMarkers: number
+}
+
 export type CleanupRequest = {
   requestedByEmail: string
   requestedByName: string

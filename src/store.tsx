@@ -10,6 +10,7 @@ import {
   errorMessage,
   getCurrentUser,
   getMarkers,
+  getMyStats,
   getStats,
   hasToken,
   joinCleanupSlot as joinCleanupSlotApi,
@@ -21,12 +22,13 @@ import {
   type MarkerDraft,
 } from './api'
 import { safeStorage } from './storage'
-import type { EcoMarker, PlatformStats, User } from './types'
+import type { EcoMarker, PlatformStats, User, UserStats } from './types'
 
 type Store = {
   dark: boolean
   setDark: (value: boolean) => void
   user: User | null
+  userStats: UserStats | null
   stats: PlatformStats | null
   markers: EcoMarker[]
   error: string
@@ -50,6 +52,7 @@ const StoreContext = createContext<Store | null>(null)
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [dark, setDarkState] = useState(() => safeStorage.get('eco-theme') === 'dark')
   const [user, setUser] = useState<User | null>(null)
+  const [userStats, setUserStats] = useState<UserStats | null>(null)
   const [markers, setMarkers] = useState<EcoMarker[]>([])
   const [stats, setStats] = useState<PlatformStats | null>(null)
   const [error, setError] = useState('')
@@ -69,6 +72,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setStats(await getStats())
     } catch (reason) {
       reportError(reason)
+    }
+  }, [reportError])
+
+  const refreshUserStats = useCallback(async () => {
+    if (!hasToken()) {
+      setUserStats(null)
+      return
+    }
+    try {
+      setUserStats(await getMyStats())
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.status === 401) {
+        clearToken()
+        setUser(null)
+        setUserStats(null)
+      } else {
+        reportError(reason)
+      }
     }
   }, [reportError])
 
@@ -96,7 +117,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     if (hasToken()) {
       void getCurrentUser()
-        .then((currentUser) => { if (active && hasToken()) setUser(currentUser) })
+        .then((currentUser) => {
+          if (!active || !hasToken()) return
+          setUser(currentUser)
+          void refreshUserStats()
+        })
         .catch((reason: unknown) => {
           if (!active) return
           if (reason instanceof ApiError && reason.status === 401) clearToken()
@@ -107,12 +132,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const refreshTimer = window.setInterval(() => {
       void refreshMarkers()
       void refreshStats()
+      if (hasToken()) void refreshUserStats()
     }, 60_000)
     return () => {
       active = false
       window.clearInterval(refreshTimer)
     }
-  }, [refreshMarkers, refreshStats, reportError])
+  }, [refreshMarkers, refreshStats, refreshUserStats, reportError])
 
   useEffect(() => {
     const deadlineTimer = window.setInterval(() => {
@@ -146,6 +172,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     dark,
     setDark: setDarkState,
     user,
+    userStats,
     stats,
     markers,
     error,
@@ -154,7 +181,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         setError('')
         setUser(await authenticate(mode, credentials))
-        await Promise.all([refreshMarkers(), refreshStats()])
+        await Promise.all([refreshMarkers(), refreshStats(), refreshUserStats()])
       } catch (reason) {
         reportError(reason)
         throw reason
@@ -163,6 +190,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     logout: () => {
       clearToken()
       setUser(null)
+      setUserStats(null)
     },
     updateUser: async (profile) => {
       try {
@@ -188,7 +216,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setError('')
         const created = await createMarker(marker, photo)
         setMarkers((current) => [created, ...current])
-        await refreshStats()
+        await Promise.all([refreshStats(), refreshUserStats()])
       } catch (reason) {
         reportError(reason)
         throw reason
@@ -219,7 +247,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     removeCleanupSlot: (markerId, slotId) => guarded(async () => {
       replaceMarker(await deleteCleanupSlot(markerId, slotId))
     }),
-  }), [dark, error, guarded, markers, refreshMarkers, refreshStats, replaceMarker, reportError, stats, user])
+  }), [dark, error, guarded, markers, refreshMarkers, refreshStats, refreshUserStats, replaceMarker, reportError, stats, user, userStats])
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
 }

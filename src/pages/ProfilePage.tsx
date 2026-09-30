@@ -4,7 +4,7 @@ import { errorMessage } from '../api'
 import { useStore } from '../store'
 
 export function ProfilePage({ onLogout }: { onLogout: () => void }) {
-  const { user, updateUser, updatePassword, markers, logout } = useStore()
+  const { user, userStats, updateUser, updatePassword, markers, logout } = useStore()
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState<'profile' | 'password' | null>(null)
@@ -44,7 +44,8 @@ export function ProfilePage({ onLogout }: { onLogout: () => void }) {
   }
 
   const exit = () => { logout(); onLogout() }
-  const ownMarkers = markers.filter((marker) => marker.creatorEmail.toLowerCase() === user.email.toLowerCase()).length
+  const visibleOwnMarkers = markers.filter((marker) => marker.creatorEmail.toLowerCase() === user.email.toLowerCase()).length
+  const ownMarkers = userStats?.totalMarkers ?? visibleOwnMarkers
 
   return (
     <main className="profile-page section-shell">

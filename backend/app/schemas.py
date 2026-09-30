@@ -100,3 +100,9 @@ class StatsOut(BaseModel):
     cleanup_rate_percent: int
 
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+
+class UserStatsOut(BaseModel):
+    total_markers: int
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)

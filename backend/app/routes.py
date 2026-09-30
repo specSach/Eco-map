@@ -24,6 +24,7 @@ from app.schemas import (
     RegisterIn,
     StatsOut,
     UserOut,
+    UserStatsOut,
 )
 from app.security import create_access_token, hash_password, verify_password
 
@@ -181,6 +182,14 @@ def update_password(payload: PasswordUpdateIn, db: db_dependency, user: user_dep
         raise HTTPException(status_code=400, detail="Текущий пароль указан неверно")
     user.password_hash = hash_password(payload.new_password)
     db.commit()
+
+
+@router.get("/users/me/stats", response_model=UserStatsOut)
+def get_user_stats(db: db_dependency, user: user_dependency) -> UserStatsOut:
+    total_markers = db.scalar(
+        select(func.count(Marker.id)).where(Marker.author_id == user.id)
+    ) or 0
+    return UserStatsOut(total_markers=total_markers)
 
 
 @router.get("/stats", response_model=StatsOut)
