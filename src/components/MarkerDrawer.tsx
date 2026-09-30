@@ -8,6 +8,7 @@ const volumeLabel: Record<WasteVolume, string> = { small: 'Немного', medi
 export function MarkerDrawer({ marker, onClose, onEdit }: { marker: EcoMarker; onClose: () => void; onEdit: (marker: EcoMarker) => void }) {
   const { user, requestCleanup, undoCleanup, confirmCleanup, addCleanupSlot, joinCleanupSlot, removeCleanupSlot } = useStore()
   const [proofOpen, setProofOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const [actionPending, setActionPending] = useState(false)
@@ -58,7 +59,7 @@ export function MarkerDrawer({ marker, onClose, onEdit }: { marker: EcoMarker; o
           <p>{marker.cleanupRequest ? `Фото добавил(а) ${marker.cleanupRequest.requestedByName}. ` : ''}{isOwner ? 'Проверьте результат и подтвердите уборку либо верните метку в активные.' : 'Результат уборки ожидает решения автора метки.'}</p>
           {isOwner && <div className="cleanup-actions">
             <button className="button button-ghost" disabled={actionPending} onClick={() => void act(undoCleanup(marker.id), 'Метка снова активна, фото проверки удалено.')}><AlertTriangle size={17} /> Мусор не убран</button>
-            <button className="button" disabled={actionPending} onClick={() => void act(confirmCleanup(marker.id), 'Уборка подтверждена, метка удалена.')}><CheckCircle2 size={17} /> Подтвердить</button>
+            <button className="button" disabled={actionPending} onClick={() => setConfirmOpen(true)}><CheckCircle2 size={17} /> Подтвердить</button>
           </div>}
         </section>}
 
@@ -72,7 +73,38 @@ export function MarkerDrawer({ marker, onClose, onEdit }: { marker: EcoMarker; o
       </div>
     </aside>
     {proofOpen && <CleanupProofModal onClose={() => setProofOpen(false)} onSubmit={async (photo) => { const success = await act(requestCleanup(marker.id, photo), 'Метка переведена в статус «На проверке» на 24 часа.'); if (success) setProofOpen(false); return success }} />}
+    {confirmOpen && <ConfirmCleanupModal pending={actionPending} onClose={() => setConfirmOpen(false)} onConfirm={() => act(confirmCleanup(marker.id), 'Уборка подтверждена, метка удалена.')} />}
   </>
+}
+
+function ConfirmCleanupModal({ pending, onClose, onConfirm }: { pending: boolean; onClose: () => void; onConfirm: () => Promise<boolean> }) {
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLElement>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    cancelRef.current?.focus()
+    const handleKeyboard = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !pending) onClose()
+      if (event.key !== 'Tab') return
+      const buttons = Array.from(dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? [])
+      if (!buttons.length) return
+      const first = buttons[0]
+      const last = buttons[buttons.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    window.addEventListener('keydown', handleKeyboard)
+    return () => window.removeEventListener('keydown', handleKeyboard)
+  }, [pending])
+
+  const confirm = async () => {
+    setError('')
+    if (await onConfirm()) onClose()
+    else setError('Не удалось подтвердить уборку. Попробуйте ещё раз.')
+  }
+
+  return <div className="modal-backdrop cleanup-proof-backdrop" onMouseDown={() => { if (!pending) onClose() }}><section ref={dialogRef} className="cleanup-confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="cleanup-confirm-title" aria-describedby="cleanup-confirm-description" onMouseDown={(event) => event.stopPropagation()}><span className="cleanup-confirm-icon"><AlertTriangle /></span><h2 id="cleanup-confirm-title">Вы точно уверены?</h2><p id="cleanup-confirm-description">После подтверждения точка будет отмечена как убранная и исчезнет с карты. Отменить это действие будет нельзя.</p>{error && <p className="field-error" role="alert">{error}</p>}<div className="cleanup-confirm-actions"><button ref={cancelRef} type="button" className="button button-ghost" disabled={pending} onClick={onClose}>Нет, не уверен</button><button type="button" className="button" disabled={pending} onClick={() => void confirm()}><CheckCircle2 size={17} /> {pending ? 'Подтверждаем…' : 'Да, уверен'}</button></div></section></div>
 }
 
 function CleanupProofModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (photo: File) => Promise<boolean> }) {
