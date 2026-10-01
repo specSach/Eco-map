@@ -107,8 +107,8 @@ export type EcoMapProps = {
 
 export function EcoMap({ markers = [], selectedId, onMarkerClick, pickerPosition, pickerVolume = 'small', onPositionChange, center = russiaCenter, focusPosition, focusZoom = 15, zoom = 3, interactive = true, className = '', onVisibleCountChange, onViewChange, onEscape }: EcoMapProps) {
   return (
-    <MapContainer center={center} zoom={zoom} scrollWheelZoom={interactive} dragging={interactive} zoomControl={interactive} keyboard={interactive} touchZoom={interactive} doubleClickZoom={interactive} boxZoom={interactive} wheelDebounceTime={35} wheelPxPerZoomLevel={90} attributionControl className={`eco-map ${className}`}>
-      <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+    <MapContainer maxBounds={[[-90, -180], [90, 180]]} maxBoundsViscosity={1.0} minZoom={3} center={center} zoom={zoom} scrollWheelZoom={interactive} dragging={interactive} zoomControl={interactive} keyboard={interactive} touchZoom={interactive} doubleClickZoom={interactive} boxZoom={interactive} wheelDebounceTime={35} wheelPxPerZoomLevel={90} attributionControl className={`eco-map ${className}`}>
+      <TileLayer noWrap={true} attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       <MarkerLayer markers={markers} selectedId={selectedId} onMarkerClick={onMarkerClick} />
       {pickerPosition && onPositionChange && <PositionPicker position={pickerPosition} volume={pickerVolume} onChange={onPositionChange} />}
       <FlyTo position={focusPosition} zoom={focusZoom} />

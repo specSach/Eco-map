@@ -60,7 +60,10 @@ def save_image(upload: UploadFile) -> str:
     if not is_valid_image(content, content_type):
         raise HTTPException(status_code=415, detail="Содержимое файла не соответствует формату изображения")
     upload_dir = Path(get_settings().upload_dir)
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        upload_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create upload directory: {str(e)}")
     filename = f"{uuid4().hex}{extension}"
     (upload_dir / filename).write_bytes(content)
     return f"/uploads/{filename}"

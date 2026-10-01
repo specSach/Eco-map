@@ -14,7 +14,11 @@ from app.routes import router
 
 settings = get_settings()
 upload_dir = Path(settings.upload_dir)
-upload_dir.mkdir(parents=True, exist_ok=True)
+try:
+    upload_dir.mkdir(parents=True, exist_ok=True)
+except Exception as e:
+    import logging
+    logging.warning(f"Failed to create upload directory {upload_dir}: {e}")
 
 
 @asynccontextmanager
@@ -32,5 +36,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
+if upload_dir.exists() and upload_dir.is_dir():
+    app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
+else:
+    import logging
+    logging.warning(f"Skipping mount for /uploads as directory {upload_dir} is not available")
 app.include_router(router, prefix="/api")
